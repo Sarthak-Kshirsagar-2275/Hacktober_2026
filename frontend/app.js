@@ -78,6 +78,7 @@ async function fetchReport() {
 }
 
 function renderReport(data) {
+    document.getElementById('reportDisclaimer').hidden = false;
     document.getElementById('localityName').textContent = data.locality_name;
     const price = Number(data.avg_price_sqft_inr);
     document.getElementById('avgPrice').textContent = Number.isFinite(price)
