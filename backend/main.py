@@ -69,6 +69,16 @@ def get_locality_by_id(locality_id: str) -> dict | None:
         return dict(row) if row else None
 
 
+def get_all_localities() -> list[dict]:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM localities ORDER BY name").fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 app = FastAPI(title="LocaleIQ API")
 
 
@@ -127,7 +137,7 @@ async def generate_report(
         if selected_priorities
         else persona or "balanced"
     )
-    cache_key = f"report-v3:{locality_id}:{cache_variant}"
+    cache_key = f"report-v4:{locality_id}:{cache_variant}"
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute("SELECT payload FROM report_cache WHERE cache_key = ?", (cache_key,)).fetchone()
         if row:
@@ -148,7 +158,11 @@ async def generate_report(
     }
 
     report = await build_live_report(
-        locality=locality, persona=persona, config=config, priorities=selected_priorities
+        locality=locality,
+        persona=persona,
+        config=config,
+        priorities=selected_priorities,
+        comparison_localities=get_all_localities(),
     )
 
     with sqlite3.connect(DB_PATH) as conn:

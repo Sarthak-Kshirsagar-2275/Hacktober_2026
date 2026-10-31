@@ -50,6 +50,9 @@ class ReportPriorityCacheTests(unittest.TestCase):
             self.assertEqual(report_builder.await_count, 2)
             self.assertEqual(report_builder.await_args_list[0].kwargs["priorities"], ["children", "elders"])
             self.assertEqual(report_builder.await_args_list[1].kwargs["priorities"], ["children"])
+            localities = report_builder.await_args_list[0].kwargs["comparison_localities"]
+            self.assertEqual(len(localities), 8)
+            self.assertIn("dwarka_expressway", {locality["id"] for locality in localities})
 
             with sqlite3.connect(test_db) as conn:
                 cache_count = conn.execute("SELECT COUNT(*) FROM report_cache").fetchone()[0]

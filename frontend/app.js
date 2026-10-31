@@ -148,6 +148,83 @@ function renderReport(data) {
     document.getElementById('infraOutlook').textContent = audit.infrastructure_outlook || 'Check current local notices before relying on future plans.';
 
     updateChart(p);
+    renderComparison(data.comparison, audit);
+}
+
+function renderComparison(comparison, audit) {
+    if (!comparison || !Array.isArray(comparison.rankings)) return;
+
+    const selected = comparison.selected;
+    const bestMatch = comparison.best_match;
+    const bestValue = comparison.best_value;
+    const price = value => `₹${Number(value).toLocaleString('en-IN')}/sq ft`;
+    document.getElementById('comparisonStatus').textContent =
+        `${comparison.rankings.length} areas scored with your selected priorities.`;
+    document.getElementById('selectedRank').textContent =
+        `Your area: #${comparison.selected_rank} of ${comparison.rankings.length}`;
+    document.getElementById('bestMatchName').textContent = bestMatch.locality_name;
+    document.getElementById('bestMatchDetails').textContent =
+        `Score ${bestMatch.score}/100 · ${price(bestMatch.avg_price_sqft_inr)} · ${bestMatch.grade}`;
+    document.getElementById('bestValueName').textContent = bestValue.locality_name;
+    document.getElementById('bestValueDetails').textContent =
+        `Score ${bestValue.score}/100 · ${price(bestValue.avg_price_sqft_inr)} · ${bestValue.value_score_per_10000_sqft} points per ₹10,000/sq ft`;
+
+    const list = document.getElementById('comparisonRankings');
+    list.replaceChildren();
+    comparison.rankings.forEach(area => {
+        const item = document.createElement('li');
+        item.className = `bg-warm subtle-border px-2 py-1.5 text-xs ${area.locality_id === selected.locality_id ? 'border-l-4 border-l-[#5C3A21]' : ''}`;
+        const topLine = document.createElement('div');
+        topLine.className = 'flex items-start justify-between gap-2';
+        const name = document.createElement('span');
+        name.className = 'min-w-0 font-bold text-[#141414]';
+        name.textContent = `#${area.rank} ${area.locality_name}`;
+        const score = document.createElement('span');
+        score.className = 'shrink-0 font-bold text-brown';
+        score.textContent = `${area.score}`;
+        topLine.append(name, score);
+        const details = document.createElement('p');
+        details.className = 'text-[10px] text-gray-600 mt-0.5';
+        const badges = [];
+        if (area.locality_id === selected.locality_id) badges.push('Your area');
+        if (area.locality_id === bestMatch.locality_id) badges.push('Top match');
+        if (area.locality_id === bestValue.locality_id) badges.push('Best value');
+        details.textContent = `${price(area.avg_price_sqft_inr)} · ${badges.join(' · ') || `Value rank #${area.value_rank}`}`;
+        item.append(topLine, details);
+        list.appendChild(item);
+    });
+
+    const facts = document.getElementById('counterfactualFacts');
+    const tradeoff = comparison.tradeoff;
+    const alternative = comparison.alternative;
+    if (!alternative || !tradeoff) {
+        facts.textContent = 'Your area is already the top overall match and best value for these priorities.';
+    } else {
+        const priceDelta = tradeoff.price_delta_sqft;
+        const priceText = priceDelta === 0
+            ? 'the same listed average price'
+            : `${price(Math.abs(priceDelta))} ${priceDelta > 0 ? 'more' : 'less'}`;
+        const powerDelta = tradeoff.power_hours_delta_week;
+        const powerText = powerDelta === 0
+            ? 'similar estimated power interruptions'
+            : `${Math.abs(powerDelta)} ${powerDelta > 0 ? 'more' : 'fewer'} estimated power-cut hours/week`;
+        const waterDelta = tradeoff.pillar_deltas.water_and_drainage;
+        const waterText = waterDelta === 0
+            ? 'similar water rating'
+            : `water rating ${waterDelta > 0 ? '+' : '−'}${Math.abs(waterDelta)} points`;
+        facts.textContent = `${alternative.locality_name} vs ${selected.locality_name}: ${priceText}; ${powerText}; ${waterText}.`;
+    }
+    document.getElementById('counterfactualInsight').textContent = audit.counterfactual_insight
+        || 'Compare the stronger ratings with the listed price before deciding.';
+    document.getElementById('comparisonGemmaStatus').textContent =
+        audit.used_gemma === true ? 'Local Gemma' : 'Backup insight';
+
+    const hasUnconfirmed = comparison.rankings.some(area =>
+        !area.air_reading_confirmed || !area.nearby_places_confirmed
+    );
+    document.getElementById('comparisonDataNote').textContent = hasUnconfirmed
+        ? 'Safety, water and power use saved estimates. Air and nearby places are checked per area; unconfirmed checks use neutral ratings. Price is a listed average.'
+        : 'Safety, water and power use saved estimates; air and nearby places use current checks. Price is a listed average.';
 }
 
 function displayValue(value, suffix = '') {
