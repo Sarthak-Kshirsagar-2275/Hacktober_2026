@@ -368,6 +368,113 @@ def calculate_scores(locality, air, amenities, persona=None, priorities=None, pr
     return pillars, overall
 
 
+PILLAR_LABELS = {
+    "schools_and_healthcare": "schools and healthcare",
+    "safety_and_security": "safety",
+    "power_reliability": "power reliability",
+    "future_infrastructure": "transit and infrastructure",
+    "water_and_drainage": "water and drainage",
+    "air_and_environment": "air quality",
+}
+
+
+def build_locality_comparison(localities, selected_locality_id, evidence_by_id, preferences):
+    rows = []
+    for locality in localities:
+        evidence = evidence_by_id[locality["id"]]
+        air = evidence["air"]
+        amenities = evidence["amenities"]
+        pillars, score = calculate_scores(locality, air, amenities, preferences=preferences)
+        price = int(locality["avg_price_sqft"])
+        rows.append({
+            "locality_id": locality["id"],
+            "locality_name": locality["name"],
+            "score": score,
+            "grade": grade_from_score(score),
+            "avg_price_sqft_inr": price,
+            "value_score_per_10000_sqft": round(score * 10000 / price, 2) if price > 0 else 0,
+            "power_outage_hours_week": float(locality["power_outage_hrs_week"]),
+            "pillar_scores": pillars,
+            "air_reading_confirmed": air["status"] == "live" and air["values"].get("us_aqi") is not None,
+            "nearby_places_confirmed": amenities["status"] == "live",
+        })
+
+    ranked = sorted(rows, key=lambda row: (-row["score"], row["avg_price_sqft_inr"], row["locality_name"].lower()))
+    for index, row in enumerate(ranked, start=1):
+        row["rank"] = index
+    value_rankings = sorted(
+        rows,
+        key=lambda row: (-row["value_score_per_10000_sqft"], -row["score"], row["avg_price_sqft_inr"], row["locality_name"].lower()),
+    )
+    value_rank = {row["locality_id"]: index for index, row in enumerate(value_rankings, start=1)}
+    for row in ranked:
+        row["value_rank"] = value_rank[row["locality_id"]]
+
+    by_id = {row["locality_id"]: row for row in ranked}
+    selected = by_id[selected_locality_id]
+    best_match = ranked[0]
+    best_value = by_id[value_rankings[0]["locality_id"]]
+    if best_match["locality_id"] != selected_locality_id:
+        alternative = best_match
+        alternative_type = "best_match"
+    elif best_value["locality_id"] != selected_locality_id:
+        alternative = best_value
+        alternative_type = "best_value"
+    else:
+        alternative = None
+        alternative_type = None
+
+    tradeoff = None
+    if alternative:
+        tradeoff = {
+            "alternative_type": alternative_type,
+            "score_delta": round(alternative["score"] - selected["score"], 1),
+            "price_delta_sqft": alternative["avg_price_sqft_inr"] - selected["avg_price_sqft_inr"],
+            "power_hours_delta_week": round(
+                alternative["power_outage_hours_week"] - selected["power_outage_hours_week"], 1
+            ),
+            "pillar_deltas": {
+                key: alternative["pillar_scores"][key] - selected["pillar_scores"][key]
+                for key in PILLAR_LABELS
+            },
+        }
+    return {
+        "selected_locality_id": selected_locality_id,
+        "selected_rank": selected["rank"],
+        "selected": selected,
+        "best_match": best_match,
+        "best_value": best_value,
+        "alternative": alternative,
+        "tradeoff": tradeoff,
+        "rankings": ranked,
+    }
+
+
+def build_counterfactual_fallback(comparison, preferences):
+    selected = comparison["selected"]
+    alternative = comparison["alternative"]
+    if not alternative:
+        return "Your chosen area already leads for these priorities. Review the ratings and confirm local conditions before deciding."
+
+    if comparison["tradeoff"]["alternative_type"] == "best_match":
+        reason = f"{alternative['locality_name']} ranks higher overall than {selected['locality_name']}"
+    else:
+        reason = f"{alternative['locality_name']} offers stronger score for its listed price than {selected['locality_name']}"
+    deltas = comparison["tradeoff"]["pillar_deltas"]
+    weights = preferences["pillar_weights"]
+    strongest_improvement = max(deltas, key=lambda key: deltas[key] * weights.get(key, 0))
+    if deltas[strongest_improvement] > 0 and weights.get(strongest_improvement, 0) > 0:
+        reason += f" and a stronger {PILLAR_LABELS[strongest_improvement]} rating"
+    needs_check = (
+        not alternative["air_reading_confirmed"]
+        or not alternative["nearby_places_confirmed"]
+        or not selected["air_reading_confirmed"]
+        or not selected["nearby_places_confirmed"]
+    )
+    caution = " Check any unconfirmed readings before switching." if needs_check else " Check conditions locally before switching."
+    return f"For your selected priorities, {reason}.{caution}"
+
+
 def _strengths_and_flags(locality, air, amenities, pillars):
     strengths = []
     red_flags = []
@@ -508,17 +615,26 @@ _TECHNICAL_USER_TEXT = re.compile(
 )
 
 
-def _clean_user_text(value, fallback, max_words=50, reject_numbers=False):
+def _clean_user_text(value, fallback, max_words=50, reject_numbers=False, allowed_numeric_phrases=None):
     if not isinstance(value, str) or not value.strip():
         return fallback
     text = " ".join(value.strip().split())
-    spelled_number = re.search(r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\b", text, re.IGNORECASE)
-    if _TECHNICAL_USER_TEXT.search(text) or (reject_numbers and (re.search(r"\d", text) or spelled_number)):
+    number_check_text = text
+    for phrase in sorted(allowed_numeric_phrases or [], key=len, reverse=True):
+        number_check_text = re.sub(re.escape(phrase), " ", number_check_text, flags=re.IGNORECASE)
+    spelled_number = re.search(
+        r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\b",
+        number_check_text,
+        re.IGNORECASE,
+    )
+    if _TECHNICAL_USER_TEXT.search(text) or (
+        reject_numbers and (re.search(r"\d", number_check_text) or spelled_number)
+    ):
         return fallback
     return " ".join(text.split()[:max_words])
 
 
-def _normalize_audit(candidate, fallback):
+def _normalize_audit(candidate, fallback, allowed_numeric_phrases=None):
     if not isinstance(candidate, dict):
         return fallback
     audit = {"model": "Gemma", "used_gemma": True}
@@ -528,6 +644,14 @@ def _normalize_audit(candidate, fallback):
         audit[key] = fallback[key]
     for key in ("overall_insight", "telemetry_insight", "pillar_insight"):
         audit[key] = _clean_user_text(candidate.get(key), fallback[key], max_words=25, reject_numbers=True)
+    if "counterfactual_insight" in fallback:
+        audit["counterfactual_insight"] = _clean_user_text(
+            candidate.get("counterfactual_insight"),
+            fallback["counterfactual_insight"],
+            max_words=40,
+            reject_numbers=True,
+            allowed_numeric_phrases=allowed_numeric_phrases,
+        )
     for key in ("key_strengths", "red_flags"):
         value = candidate.get(key)
         if isinstance(value, list):
@@ -543,7 +667,9 @@ def _normalize_audit(candidate, fallback):
     return audit
 
 
-async def generate_gemma_analysis(locality, persona, score, pillars, live_metrics, news, fallback, config, preferences=None):
+async def generate_gemma_analysis(
+    locality, persona, score, pillars, live_metrics, news, fallback, config, preferences=None, comparison=None
+):
     """Generate the personalized narrative with local Gemma, falling back to the rule-based audit if needed."""
     model = config.get("ollama_model", "").strip()
     if not model:
@@ -564,16 +690,42 @@ async def generate_gemma_analysis(locality, persona, score, pillars, live_metric
         "live_metrics": {key: value for key, value in live_metrics.items() if value is not None},
         "news_titles": [item["title"] for item in news["articles"][:8]],
     }
+    if comparison:
+        def area_facts(area):
+            return {
+                "name": area["locality_name"],
+                "overall_rank": area["rank"],
+                "value_rank": area["value_rank"],
+                "score": area["score"],
+                "grade": area["grade"],
+                "average_price_sqft_inr": area["avg_price_sqft_inr"],
+                "value_score_per_10000_sqft": area["value_score_per_10000_sqft"],
+                "estimated_power_outage_hours_week": area["power_outage_hours_week"],
+                "pillar_scores": area["pillar_scores"],
+                "air_reading_confirmed": area["air_reading_confirmed"],
+                "nearby_places_confirmed": area["nearby_places_confirmed"],
+            }
+
+        prompt_data["comparison_matrix"] = {
+            "selected_area": area_facts(comparison["selected"]),
+            "selected_overall_rank": comparison["selected_rank"],
+            "best_overall_match": area_facts(comparison["best_match"]),
+            "best_value_match": area_facts(comparison["best_value"]),
+            "alternative_to_consider": area_facts(comparison["alternative"]) if comparison["alternative"] else None,
+            "all_ranked_areas": [area_facts(area) for area in comparison["rankings"]],
+            "selected_to_alternative_differences": comparison["tradeoff"],
+        }
     prompt = (
         "You are LocaleIQ's local-neighborhood guide. Personalize the explanation for every selected household priority and be fair when priorities compete. "
         "Python has already calculated the official numbers and ratings; they will be shown before your words. Do not repeat or change them. "
         "Return one JSON object with these three short fields: overall_insight, telemetry_insight, and pillar_insight, plus buyer_verdict, "
         "executive_summary, key_strengths, red_flags, and infrastructure_outlook. In each card, the exact Numbers line comes first; your Insight "
         "line follows with one useful takeaway. Keep each insight to at most 25 words and do not include numerals, so each card stays within 50 words. "
-        "Use everyday professional language. Never mention software, code, services, sources, requests, errors, missing fields, or technical terms. "
-        "If a figure is not confirmed, say that plainly without explaining why. Never write None, null, unknown, or a guessed count. "
-        "Use only supplied facts; do not invent facilities, quality, travel times, safety events, water conditions, or future projects. "
-        "Keep strengths and red_flags as short string arrays. Data: "
+        + ("The comparison matrix is calculated by Python. Add one counterfactual_insight of at most 40 words explaining the strongest alternative for the selected priorities; do not repeat ranks, prices, scores, or numeric differences because Python displays them. " if comparison else "")
+        + "Use everyday professional language. Never mention software, code, services, sources, requests, errors, missing fields, or technical terms. "
+        + "If a figure is not confirmed, say that plainly without explaining why. Never write None, null, unknown, or a guessed count. "
+        + "Use only supplied facts; do not invent facilities, quality, travel times, safety events, water conditions, or future projects. "
+        + "Keep strengths and red_flags as short string arrays. Data: "
         + json.dumps(prompt_data, ensure_ascii=False)
     )
     url = config.get("ollama_url", "http://localhost:11434").rstrip("/") + "/api/generate"
@@ -586,25 +738,53 @@ async def generate_gemma_analysis(locality, persona, score, pillars, live_metric
             )
             response.raise_for_status()
             generated = response.json().get("response", "")
-            return _normalize_audit(json.loads(generated), fallback)
+            allowed_names = [area["locality_name"] for area in comparison["rankings"]] if comparison else []
+            return _normalize_audit(json.loads(generated), fallback, allowed_numeric_phrases=allowed_names)
     except Exception:
         return fallback
 
 
-async def build_live_report(locality, persona, config, priorities=None):
+async def build_live_report(locality, persona, config, priorities=None, comparison_localities=None):
     timeout = float(config.get("request_timeout_seconds", "12"))
+    preferences = resolve_preferences(priorities, persona)
+    comparison = None
     async with httpx.AsyncClient(
         timeout=timeout,
         follow_redirects=True,
         headers={"User-Agent": "LocaleIQ/1.0 local hackathon prototype"},
     ) as client:
-        air, amenities, news = await asyncio.gather(
-            fetch_air_quality(client, locality, config),
-            fetch_amenities(client, locality, config),
-            fetch_news(client, config),
-        )
+        if comparison_localities:
+            candidates = list(comparison_localities)
+            if not any(candidate["id"] == locality["id"] for candidate in candidates):
+                candidates.append(locality)
 
-    preferences = resolve_preferences(priorities, persona)
+            async def fetch_locality_evidence(candidate):
+                return await asyncio.gather(
+                    fetch_air_quality(client, candidate, config),
+                    fetch_amenities(client, candidate, config),
+                )
+
+            *candidate_evidence, news = await asyncio.gather(
+                *(fetch_locality_evidence(candidate) for candidate in candidates),
+                fetch_news(client, config),
+            )
+            evidence_by_id = {
+                candidate["id"]: {"air": evidence[0], "amenities": evidence[1]}
+                for candidate, evidence in zip(candidates, candidate_evidence)
+            }
+            selected_evidence = evidence_by_id[locality["id"]]
+            air = selected_evidence["air"]
+            amenities = selected_evidence["amenities"]
+            comparison = build_locality_comparison(
+                candidates, locality["id"], evidence_by_id, preferences
+            )
+        else:
+            air, amenities, news = await asyncio.gather(
+                fetch_air_quality(client, locality, config),
+                fetch_amenities(client, locality, config),
+                fetch_news(client, config),
+            )
+
     pillars, score = calculate_scores(locality, air, amenities, persona, preferences=preferences)
     air_values = air["values"]
     live_metrics = {
@@ -622,8 +802,10 @@ async def build_live_report(locality, persona, config, priorities=None):
         "recent_news_available": news["status"] == "live",
     }
     audit = build_rule_based_audit(locality, persona, score, air, amenities, news, pillars, preferences)
+    if comparison:
+        audit["counterfactual_insight"] = build_counterfactual_fallback(comparison, preferences)
     audit = await generate_gemma_analysis(
-        locality, persona, score, pillars, live_metrics, news, audit, config, preferences
+        locality, persona, score, pillars, live_metrics, news, audit, config, preferences, comparison
     )
     statuses = {"air_quality": air["status"], "amenities": amenities["status"], "civic_news": news["status"]}
     live_count = sum(status == "live" for status in statuses.values())
@@ -646,6 +828,7 @@ async def build_live_report(locality, persona, config, priorities=None):
         "pillar_scores": pillars,
         "live_metrics": live_metrics,
         "gemma_audit": audit,
+        "comparison": comparison,
         "data_quality": {"status": quality_status, "live_sources": live_count, "source_count": len(statuses)},
         "data_sources": {
             "air_quality": air,

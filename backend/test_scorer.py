@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 from scorer import (
     aqi_category,
+    build_counterfactual_fallback,
+    build_locality_comparison,
     build_rule_based_audit,
     build_live_report,
     calculate_scores,
@@ -88,6 +90,33 @@ class ScorerTests(unittest.TestCase):
         self.assertGreater(children_pillars["schools_and_healthcare"], combined_pillars["schools_and_healthcare"])
         self.assertGreater(combined_pillars["schools_and_healthcare"], elders_pillars["schools_and_healthcare"])
 
+    def test_comparison_ranks_priority_fit_and_value_separately(self):
+        localities = [
+            {"id": "dwarka", "name": "Dwarka Expressway (Sector 104)", "avg_price_sqft": 13800, "base_safety_score": 74, "base_water_score": 65, "power_outage_hrs_week": 4.5},
+            {"id": "palam", "name": "Palam Vihar (Sector 23)", "avg_price_sqft": 15200, "base_safety_score": 80, "base_water_score": 75, "power_outage_hrs_week": 2.5},
+        ]
+        unavailable = {
+            "air": {"status": "unavailable", "values": {"us_aqi": None}},
+            "amenities": {"status": "unavailable", "schools_count": None, "hospitals_count": None, "transit_count": None},
+        }
+        preferences = resolve_preferences(["elders", "remote_work"])
+        comparison = build_locality_comparison(
+            localities, "dwarka", {item["id"]: unavailable for item in localities}, preferences
+        )
+
+        self.assertEqual(comparison["selected_rank"], 2)
+        self.assertEqual(comparison["best_match"]["locality_id"], "palam")
+        self.assertEqual(comparison["best_value"]["locality_id"], "dwarka")
+        self.assertEqual(comparison["tradeoff"]["price_delta_sqft"], 1400)
+        self.assertEqual(comparison["tradeoff"]["power_hours_delta_week"], -2.0)
+        self.assertEqual(comparison["tradeoff"]["pillar_deltas"]["water_and_drainage"], 10)
+        fallback = build_counterfactual_fallback(comparison, preferences)
+        self.assertIn("stronger power reliability", fallback)
+        without_official_names = fallback.replace("Palam Vihar (Sector 23)", "").replace(
+            "Dwarka Expressway (Sector 104)", ""
+        )
+        self.assertNotRegex(without_official_names, r"\d")
+
 
 class ReportTests(unittest.IsolatedAsyncioTestCase):
     async def test_report_contract_with_mocked_free_sources(self):
@@ -139,6 +168,29 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             numbers = report["gemma_audit"][f"{prefix}_numbers"]
             insight = report["gemma_audit"][f"{prefix}_insight"]
             self.assertLessEqual(len(numbers.split()) + len(insight.split()), 50)
+
+    async def test_comparison_fetches_each_area_and_news_once(self):
+        locality = {"id": "dwarka", "name": "Dwarka Expressway", "lat": 28.4789, "lon": 76.9932, "avg_price_sqft": 13800, "base_safety_score": 74, "base_water_score": 65, "power_outage_hrs_week": 4.5}
+        palam = {"id": "palam", "name": "Palam Vihar", "lat": 28.5085, "lon": 77.0322, "avg_price_sqft": 15200, "base_safety_score": 80, "base_water_score": 75, "power_outage_hrs_week": 2.5}
+        air = {"status": "unavailable", "values": {"us_aqi": None, "pm2_5": None, "pm10": None}}
+        amenities = {"status": "unavailable", "schools_count": None, "hospitals_count": None, "transit_count": None}
+        news = {"status": "unavailable", "articles": [], "articles_count": 0}
+        with patch("scorer.fetch_air_quality", new_callable=AsyncMock, return_value=air) as air_fetch, patch(
+            "scorer.fetch_amenities", new_callable=AsyncMock, return_value=amenities
+        ) as places_fetch, patch("scorer.fetch_news", new_callable=AsyncMock, return_value=news) as news_fetch:
+            report = await build_live_report(
+                locality,
+                None,
+                {"request_timeout_seconds": "1", "ollama_model": ""},
+                priorities=["elders", "remote_work"],
+                comparison_localities=[locality, palam],
+            )
+
+        self.assertEqual(air_fetch.await_count, 2)
+        self.assertEqual(places_fetch.await_count, 2)
+        self.assertEqual(news_fetch.await_count, 1)
+        self.assertEqual(report["comparison"]["best_match"]["locality_id"], "palam")
+        self.assertIn("counterfactual_insight", report["gemma_audit"])
 
     def test_unconfirmed_nearby_counts_use_plain_language(self):
         locality = {
@@ -218,6 +270,7 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
                     "response": json.dumps({
                         "overall_numbers": "The area scored 75/100; the average listed price is ₹20,000 per sq.ft.",
                         "overall_insight": "Compare the listed average with your budget and the needs you selected.",
+                        "counterfactual_insight": "Palam Vihar offers stronger power reliability and water ratings; check local conditions before switching.",
                         "telemetry_numbers": "AQI 80 (Moderate); PM2.5 20; PM10 30; estimated power interruptions are 2 hours weekly.",
                         "telemetry_insight": "Air readings can change, so check current conditions before deciding.",
                         "pillar_numbers": "Schools and healthcare 75; safety 80; power 70; transit 65; water 75; air 72.",
@@ -260,9 +313,24 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             "key_strengths": ["Fallback strength"],
             "red_flags": ["Fallback flag"],
             "infrastructure_outlook": "Fallback outlook",
+            "counterfactual_insight": "Fallback comparison insight.",
         }
         client = MockClient()
         preferences = resolve_preferences(["children", "elders"])
+        comparison_localities = [
+            {"id": "dwarka", "name": "Dwarka Expressway (Sector 104)", "avg_price_sqft": 13800, "base_safety_score": 74, "base_water_score": 65, "power_outage_hrs_week": 4.5},
+            {"id": "palam", "name": "Palam Vihar (Sector 23)", "avg_price_sqft": 15200, "base_safety_score": 80, "base_water_score": 75, "power_outage_hrs_week": 2.5},
+        ]
+        comparison_evidence = {
+            item["id"]: {
+                "air": {"status": "unavailable", "values": {"us_aqi": None}},
+                "amenities": {"status": "unavailable", "schools_count": None, "hospitals_count": None, "transit_count": None},
+            }
+            for item in comparison_localities
+        }
+        comparison = build_locality_comparison(
+            comparison_localities, "dwarka", comparison_evidence, preferences
+        )
         with patch("scorer.httpx.AsyncClient", return_value=client):
             result = await generate_gemma_analysis(
                 locality,
@@ -274,6 +342,7 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
                 fallback,
                 {"ollama_model": "gemma4:12b", "ollama_url": "http://localhost:11434"},
                 preferences,
+                comparison,
             )
 
         prompt = client.request["json"]["prompt"]
@@ -281,9 +350,13 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Elders / regular medical needs", prompt)
         self.assertIn("do not repeat or change them", prompt.lower())
         self.assertIn("25 words", prompt)
+        self.assertIn("comparison_matrix", prompt)
+        self.assertIn("Palam Vihar (Sector 23)", prompt)
         self.assertTrue(result["used_gemma"])
         self.assertEqual(result["model"], "Gemma")
         self.assertEqual(result["overall_numbers"], fallback["overall_numbers"])
+        self.assertIn("Palam Vihar", result["counterfactual_insight"])
+        self.assertFalse(any(character.isdigit() for character in result["counterfactual_insight"]))
         for prefix in ("overall", "telemetry", "pillar"):
             self.assertLessEqual(
                 len(result[f"{prefix}_numbers"].split()) + len(result[f"{prefix}_insight"].split()),
