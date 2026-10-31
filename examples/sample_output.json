@@ -1,43 +1,438 @@
 {
   "locality_id": "dlf_phase_4",
   "locality_name": "DLF Phase 4 (Sector 28), Gurugram",
-  "buyer_persona": "family",
+  "buyer_persona": "custom",
+  "selected_priorities": [
+    "children",
+    "elders"
+  ],
+  "priority_labels": [
+    "Children at home",
+    "Elders / regular medical needs"
+  ],
+  "priority_scoring": {
+    "pillar_weights": {
+      "schools_and_healthcare": 0.33,
+      "safety_and_security": 0.18,
+      "power_reliability": 0.13,
+      "future_infrastructure": 0.09,
+      "water_and_drainage": 0.12000000000000001,
+      "air_and_environment": 0.15000000000000002
+    },
+    "schools_share": 0.44000000000000006,
+    "healthcare_share": 0.5599999999999999
+  },
   "avg_price_sqft_inr": 22500,
-  "standardized_quality_score": 81.4,
-  "grade": "A-",
+  "standardized_quality_score": 65.2,
+  "grade": "B-",
   "pillar_scores": {
-    "schools_and_healthcare": 92,
+    "schools_and_healthcare": 50,
     "safety_and_security": 86,
     "power_reliability": 91,
-    "future_infrastructure": 84,
+    "future_infrastructure": 50,
     "water_and_drainage": 78,
-    "air_and_environment": 46
+    "air_and_environment": 50
   },
   "live_metrics": {
-    "us_aqi": 168,
-    "aqi_category": "Unhealthy",
-    "pm2_5_ugm3": 82.4,
-    "pm10_ugm3": 146.0,
-    "power_outage_hrs_week": 1.5
+    "us_aqi": null,
+    "aqi_category": null,
+    "pm2_5_ugm3": null,
+    "pm10_ugm3": null,
+    "power_outage_hrs_week": 1.5,
+    "schools_count": null,
+    "hospitals_count": null,
+    "transit_count": null,
+    "news_articles_analyzed": 0,
+    "air_reading_confirmed": false,
+    "nearby_places_confirmed": false,
+    "recent_news_available": false
   },
-  "gemma_9b_audit": {
-    "model": "gemma2:9b",
-    "executive_summary": "DLF Phase 4 (Sector 28) is a mature, high-convenience residential micro-market ideal for families prioritizing top-tier schooling, metro walkability, and established social infrastructure, though buyers must account for high entry prices (₹22,500/sq.ft) and seasonal NCR air quality challenges.",
+  "gemma_audit": {
+    "model": "Report insight",
+    "used_gemma": false,
+    "buyer_verdict": "This area may fit Children at home, Elders / regular medical needs; compare the ratings most important to you and check them locally.",
+    "executive_summary": "DLF Phase 4 (Sector 28), Gurugram scored 65.2/100 for Children at home, Elders / regular medical needs. A current air-quality reading is not available right now. Nearby schools, healthcare and transit are not confirmed right now. The safety number is a stored estimate, not based on recent headlines or official crime records; we do not know where it came from or when it was last checked. Water and power figures are also estimates, not live readings.",
+    "overall_numbers": "DLF Phase 4 (Sector 28), Gurugram scored 65.2/100 (B-); the listed average price is ₹22,500 per square foot.",
+    "overall_insight": "For Children at home, Elders / regular medical needs, compare the related ratings first; the listed price is an average, not an affordability rating.",
+    "telemetry_numbers": "No current air readings are confirmed. Estimated power interruptions: 1.5 hours per week.",
+    "telemetry_insight": "Air readings can change, and power is estimated; check conditions at the home before deciding.",
+    "pillar_numbers": "Schools and healthcare 50/100; Safety estimate 86/100; Power reliability 91/100; Transit and infrastructure 50/100; Water and drainage 78/100; Air quality 50/100.",
+    "pillar_insight": "Your choices give schools and healthcare the largest influence on the total; higher ratings are better.",
     "key_strengths": [
-      "Immediate proximity to premier schools (The Shri Ram School Aravali, Ridge Valley) and tertiary hospitals (Fortis, Max) within a 2.5 km radius.",
-      "High grid reliability (only ~1.5 hrs/week DHBVN outage) reinforced by 100% society-level diesel generator backup.",
-      "Walkable commercial and transit access via Galleria Market and nearby Yellow Line & Rapid Metro stations."
+      "The report rates water and drainage at 78/100.",
+      "Estimated power interruptions are 1.5 hours per week."
     ],
     "red_flags": [
-      "Elevated particulate exposure (US AQI 168, PM2.5 at 82.4 µg/m³) requires indoor air filtration for children and seniors.",
-      "Localized monsoon waterlogging along internal collector roads near Hamilton Court during intense July-August rainfall.",
-      "Peak-hour traffic congestion around Galleria Market and Chakkarpur entry corridors."
+      "The safety estimate is a stored baseline; we do not know where it came from or when it was last checked.",
+      "Nearby school, healthcare and transit information is not confirmed right now.",
+      "A current air-quality reading is not available right now.",
+      "Recent local news is not available right now."
     ],
-    "infrastructure_outlook": "High stability with incremental civic upgrades: GMDA master drainage de-silting and the upcoming Gurugram Metro loop connecting Millennium City Centre to Cyber City will further reduce dependency on private vehicles over the next 3-5 years.",
-    "buyer_verdict": "Strong Buy for end-user families seeking immediate livability and low execution risk over speculative construction zones."
-  }
+    "infrastructure_outlook": "This report cannot confirm future projects. Check current local authority notices before relying on a timeline.",
+    "counterfactual_insight": "For your selected priorities, Golf Course Road (Sector 54), Gurugram ranks higher overall than DLF Phase 4 (Sector 28), Gurugram and a stronger safety estimate rating. Check any unconfirmed readings before switching."
+  },
+  "comparison": {
+    "selected_locality_id": "dlf_phase_4",
+    "selected_rank": 2,
+    "selected": {
+      "locality_id": "dlf_phase_4",
+      "locality_name": "DLF Phase 4 (Sector 28), Gurugram",
+      "score": 65.2,
+      "grade": "B-",
+      "avg_price_sqft_inr": 22500,
+      "value_score_per_10000_sqft": 28.98,
+      "power_outage_hours_week": 1.5,
+      "pillar_scores": {
+        "schools_and_healthcare": 50,
+        "safety_and_security": 86,
+        "power_reliability": 91,
+        "future_infrastructure": 50,
+        "water_and_drainage": 78,
+        "air_and_environment": 50
+      },
+      "air_reading_confirmed": false,
+      "nearby_places_confirmed": false,
+      "rank": 2,
+      "value_rank": 7
+    },
+    "best_match": {
+      "locality_id": "golf_course_road",
+      "locality_name": "Golf Course Road (Sector 54), Gurugram",
+      "score": 67.2,
+      "grade": "B-",
+      "avg_price_sqft_inr": 28500,
+      "value_score_per_10000_sqft": 23.58,
+      "power_outage_hours_week": 1.0,
+      "pillar_scores": {
+        "schools_and_healthcare": 50,
+        "safety_and_security": 91,
+        "power_reliability": 94,
+        "future_infrastructure": 50,
+        "water_and_drainage": 84,
+        "air_and_environment": 50
+      },
+      "air_reading_confirmed": false,
+      "nearby_places_confirmed": false,
+      "rank": 1,
+      "value_rank": 8
+    },
+    "best_value": {
+      "locality_id": "new_gurugram",
+      "locality_name": "New Gurugram (Sector 82), Gurugram",
+      "score": 60.5,
+      "grade": "C+",
+      "avg_price_sqft_inr": 11500,
+      "value_score_per_10000_sqft": 52.61,
+      "power_outage_hours_week": 4.0,
+      "pillar_scores": {
+        "schools_and_healthcare": 50,
+        "safety_and_security": 76,
+        "power_reliability": 76,
+        "future_infrastructure": 50,
+        "water_and_drainage": 70,
+        "air_and_environment": 50
+      },
+      "air_reading_confirmed": false,
+      "nearby_places_confirmed": false,
+      "rank": 7,
+      "value_rank": 1
+    },
+    "alternative": {
+      "locality_id": "golf_course_road",
+      "locality_name": "Golf Course Road (Sector 54), Gurugram",
+      "score": 67.2,
+      "grade": "B-",
+      "avg_price_sqft_inr": 28500,
+      "value_score_per_10000_sqft": 23.58,
+      "power_outage_hours_week": 1.0,
+      "pillar_scores": {
+        "schools_and_healthcare": 50,
+        "safety_and_security": 91,
+        "power_reliability": 94,
+        "future_infrastructure": 50,
+        "water_and_drainage": 84,
+        "air_and_environment": 50
+      },
+      "air_reading_confirmed": false,
+      "nearby_places_confirmed": false,
+      "rank": 1,
+      "value_rank": 8
+    },
+    "tradeoff": {
+      "alternative_type": "best_match",
+      "score_delta": 2.0,
+      "price_delta_sqft": 6000,
+      "power_hours_delta_week": -0.5,
+      "pillar_deltas": {
+        "schools_and_healthcare": 0,
+        "safety_and_security": 5,
+        "power_reliability": 3,
+        "future_infrastructure": 0,
+        "water_and_drainage": 6,
+        "air_and_environment": 0
+      }
+    },
+    "rankings": [
+      {
+        "locality_id": "golf_course_road",
+        "locality_name": "Golf Course Road (Sector 54), Gurugram",
+        "score": 67.2,
+        "grade": "B-",
+        "avg_price_sqft_inr": 28500,
+        "value_score_per_10000_sqft": 23.58,
+        "power_outage_hours_week": 1.0,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 91,
+          "power_reliability": 94,
+          "future_infrastructure": 50,
+          "water_and_drainage": 84,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 1,
+        "value_rank": 8
+      },
+      {
+        "locality_id": "dlf_phase_4",
+        "locality_name": "DLF Phase 4 (Sector 28), Gurugram",
+        "score": 65.2,
+        "grade": "B-",
+        "avg_price_sqft_inr": 22500,
+        "value_score_per_10000_sqft": 28.98,
+        "power_outage_hours_week": 1.5,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 86,
+          "power_reliability": 91,
+          "future_infrastructure": 50,
+          "water_and_drainage": 78,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 2,
+        "value_rank": 7
+      },
+      {
+        "locality_id": "sushant_lok_1",
+        "locality_name": "Sushant Lok Phase 1 (Sector 43), Gurugram",
+        "score": 63.6,
+        "grade": "C+",
+        "avg_price_sqft_inr": 19800,
+        "value_score_per_10000_sqft": 32.12,
+        "power_outage_hours_week": 2.0,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 82,
+          "power_reliability": 88,
+          "future_infrastructure": 50,
+          "water_and_drainage": 74,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 3,
+        "value_rank": 6
+      },
+      {
+        "locality_id": "golf_course_ext",
+        "locality_name": "Golf Course Ext. Road (Sector 65), Gurugram",
+        "score": 63.1,
+        "grade": "C+",
+        "avg_price_sqft_inr": 18500,
+        "value_score_per_10000_sqft": 34.11,
+        "power_outage_hours_week": 2.5,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 83,
+          "power_reliability": 85,
+          "future_infrastructure": 50,
+          "water_and_drainage": 72,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 4,
+        "value_rank": 5
+      },
+      {
+        "locality_id": "palam_vihar",
+        "locality_name": "Palam Vihar (Sector 23), Gurugram",
+        "score": 63.0,
+        "grade": "C+",
+        "avg_price_sqft_inr": 15200,
+        "value_score_per_10000_sqft": 41.45,
+        "power_outage_hours_week": 2.5,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 80,
+          "power_reliability": 85,
+          "future_infrastructure": 50,
+          "water_and_drainage": 75,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 5,
+        "value_rank": 4
+      },
+      {
+        "locality_id": "sohna_road",
+        "locality_name": "Sohna Road (Sector 49), Gurugram",
+        "score": 61.0,
+        "grade": "C+",
+        "avg_price_sqft_inr": 14200,
+        "value_score_per_10000_sqft": 42.96,
+        "power_outage_hours_week": 3.5,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 78,
+          "power_reliability": 79,
+          "future_infrastructure": 50,
+          "water_and_drainage": 68,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 6,
+        "value_rank": 2
+      },
+      {
+        "locality_id": "new_gurugram",
+        "locality_name": "New Gurugram (Sector 82), Gurugram",
+        "score": 60.5,
+        "grade": "C+",
+        "avg_price_sqft_inr": 11500,
+        "value_score_per_10000_sqft": 52.61,
+        "power_outage_hours_week": 4.0,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 76,
+          "power_reliability": 76,
+          "future_infrastructure": 50,
+          "water_and_drainage": 70,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 7,
+        "value_rank": 1
+      },
+      {
+        "locality_id": "dwarka_expressway",
+        "locality_name": "Dwarka Expressway (Sector 104), Gurugram",
+        "score": 59.1,
+        "grade": "C",
+        "avg_price_sqft_inr": 13800,
+        "value_score_per_10000_sqft": 42.83,
+        "power_outage_hours_week": 4.5,
+        "pillar_scores": {
+          "schools_and_healthcare": 50,
+          "safety_and_security": 74,
+          "power_reliability": 73,
+          "future_infrastructure": 50,
+          "water_and_drainage": 65,
+          "air_and_environment": 50
+        },
+        "air_reading_confirmed": false,
+        "nearby_places_confirmed": false,
+        "rank": 8,
+        "value_rank": 3
+      }
+    ]
+  },
+  "data_quality": {
+    "status": "fallback",
+    "live_sources": 0,
+    "source_count": 3
+  },
+  "mapped_context": {
+    "provider": "OpenStreetMap contributors",
+    "status": "unavailable",
+    "retrieved_at": null,
+    "radius_m": 2500,
+    "police_stations_count": null,
+    "drainage_features_count": null,
+    "used_in_scores": false
+  },
+  "data_provenance": {
+    "air_quality": {
+      "provider": "Open-Meteo Air Quality",
+      "status": "unavailable",
+      "retrieved_at": null,
+      "source_url": "https://open-meteo.com/en/docs/air-quality-api",
+      "license_url": "https://open-meteo.com/en/licence",
+      "coverage": "Modeled estimate requested at the locality coordinates; not a local monitor reading.",
+      "usage_note": "The free API is for non-commercial use; commercial use requires an appropriate provider plan."
+    },
+    "nearby_places": {
+      "provider": "OpenStreetMap contributors via Overpass API",
+      "status": "unavailable",
+      "retrieved_at": null,
+      "radius_m": 2500,
+      "source_url": "https://www.openstreetmap.org/copyright",
+      "license": "Open Database License (ODbL)",
+      "coverage": "Mapped features within 2.5 km of the locality coordinates; counts may be incomplete or out of date.",
+      "context_note": "Mapped police stations and drainage channels are context only, not crime or service-reliability measures."
+    },
+    "stored_baselines": {
+      "provider": "LocaleIQ local SQLite baseline",
+      "source_url": null,
+      "source_date": null,
+      "fields": [
+        "average price per square foot",
+        "safety estimate",
+        "water and drainage score",
+        "estimated weekly power interruptions"
+      ],
+      "note": "The database does not record the upstream source or observation date for these stored values."
+    },
+    "civic_news": {
+      "provider": "Google News RSS",
+      "status": "unavailable",
+      "retrieved_at": null,
+      "coverage": "Gurugram-wide search of recent stories; not specific to the selected locality."
+    }
+  },
+  "data_sources": {
+    "air_quality": {
+      "status": "unavailable",
+      "provider": "Open-Meteo Air Quality",
+      "retrieved_at": null,
+      "values": {
+        "us_aqi": null,
+        "pm2_5": null,
+        "pm10": null
+      },
+      "error": "A current air reading is not available right now."
+    },
+    "amenities": {
+      "status": "unavailable",
+      "provider": "OpenStreetMap Overpass",
+      "retrieved_at": null,
+      "schools_count": null,
+      "hospitals_count": null,
+      "transit_count": null,
+      "police_stations_count": null,
+      "drainage_features_count": null,
+      "error": "Nearby place information is not available right now."
+    },
+    "civic_news": {
+      "status": "unavailable",
+      "provider": "Google News RSS",
+      "retrieved_at": null,
+      "articles": [],
+      "articles_count": 0,
+      "error": "Recent local news is not available right now."
+    },
+    "attribution": [
+      "Air quality: Open-Meteo, based on atmospheric composition forecast data.",
+      "Amenities: © OpenStreetMap contributors, queried through Overpass API.",
+      "Civic headlines: Google News RSS search feed."
+    ]
+  },
+  "news_items": [],
+  "generated_at": "2026-10-31T23:31:31Z"
 }
-
-
-
-
