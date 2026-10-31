@@ -112,6 +112,13 @@ async def generate_report(
         "openweather_api_key": os.getenv("OPENWEATHER_API_KEY", ""),
         "ollama_url": os.getenv("OLLAMA_URL", "http://localhost:11434"),
         "ollama_model": os.getenv("OLLAMA_MODEL", "gemma4:12b"),
+        "air_quality_api_url": os.getenv(
+            "AIR_QUALITY_API_URL", "https://air-quality-api.open-meteo.com/v1/air-quality"
+        ),
+        "overpass_api_url": os.getenv(
+            "OVERPASS_API_URL", "https://overpass-api.de/api/interpreter"
+        ),
+        "news_rss_url": os.getenv("NEWS_RSS_URL", "https://news.google.com/rss/search"),
     }
 
     report = await build_live_report(locality=locality, persona=persona, config=config)
@@ -129,5 +136,4 @@ async def generate_report(
 FRONTEND_DIR = ROOT_DIR / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
-
 
