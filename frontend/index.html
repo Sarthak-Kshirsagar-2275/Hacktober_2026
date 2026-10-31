@@ -55,15 +55,17 @@
             <div>
                 <h1 class="text-2xl font-bold tracking-tight text-[#141414]">LOCALEIQ <span class="text-brown">// GURUGRAM</span></h1>
             </div>
-            <span id="statusText" class="text-xs font-bold uppercase px-3 py-1 bg-warm brown-border text-brown">Awaiting Input</span>
+            <span id="statusText" class="text-xs font-bold uppercase px-3 py-1 bg-warm brown-border text-brown">Awaiting Selection</span>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto p-6 space-y-6">
         <section class="bg-warm brown-border p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-                <label for="localityInput" class="block text-xs font-bold uppercase text-brown mb-1">01. Enter Gurugram Sector / Area</label>
-                <input id="localityInput" type="text" placeholder="e.g. Sector 56, DLF Phase 4" class="w-full p-3 bg-white brown-border text-base font-bold text-[#141414] focus:outline-none" />
+                <label for="localitySelect" class="block text-xs font-bold uppercase text-brown mb-1">01. Select Gurugram Locality</label>
+                <select id="localitySelect" class="w-full p-3 bg-white brown-border text-base font-bold text-[#141414] focus:outline-none">
+                    <option value="">Loading from Database...</option>
+                </select>
             </div>
             <div>
                 <label for="personaSelect" class="block text-xs font-bold uppercase text-brown mb-1">02. Priority</label>
@@ -89,8 +91,8 @@
                     </div>
                     <div class="flex items-center gap-6">
                         <div class="text-right">
-                            <div class="text-xs font-bold uppercase text-brown">Coordinates</div>
-                            <div id="localityCoords" class="text-lg font-heading font-bold text-[#141414]">--</div>
+                            <div class="text-xs font-bold uppercase text-brown">Avg Price</div>
+                            <div id="avgPrice" class="text-2xl font-heading font-bold text-[#141414]">--</div>
                         </div>
                         <div class="text-right border-l-2 border-[#5C3A21] pl-6">
                             <div class="text-xs font-bold uppercase text-brown">Quality Score</div>
@@ -132,8 +134,8 @@
                         <div id="livePm10" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">Elevation</div>
-                        <div id="liveElevation" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                        <div class="text-xs font-bold uppercase text-brown">Power Cuts</div>
+                        <div id="powerOutage" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
