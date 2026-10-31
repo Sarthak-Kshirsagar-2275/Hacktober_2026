@@ -88,8 +88,15 @@ function renderReport(data) {
     document.getElementById('overallScore').textContent = data.standardized_quality_score;
     document.getElementById('overallGrade').textContent = data.grade;
 
-    document.getElementById('buyerVerdict').textContent = data.gemma_audit.buyer_verdict;
-    document.getElementById('execSummary').textContent = data.gemma_audit.executive_summary;
+    const audit = data.gemma_audit || {};
+    const usedGemma = audit.model?.startsWith('ollama:') || false;
+    document.getElementById('gemmaReadTitle').textContent = usedGemma ? 'Gemma’s read' : 'Report insight';
+    document.getElementById('gemmaReadStatus').textContent = usedGemma ? 'Local Gemma' : 'Rule-based fallback';
+    document.getElementById('gemmaPriorityFit').textContent = audit.priority_fit || audit.buyer_verdict || '--';
+    document.getElementById('gemmaCheck').textContent = audit.check_before_deciding
+        || 'Confirm facility quality and local conditions before deciding.';
+    document.getElementById('buyerVerdict').textContent = audit.buyer_verdict || '--';
+    document.getElementById('execSummary').textContent = audit.executive_summary || '--';
     document.getElementById('appliedPriorities').textContent = (data.priority_labels || []).join(' + ');
     const scoreWeights = data.priority_scoring?.pillar_weights;
     const pillarNames = {

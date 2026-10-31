@@ -448,10 +448,29 @@ def build_rule_based_audit(locality, persona, score, air, amenities, news, pilla
             f"The civic feed returned {news['articles_count']} Gurugram articles from the last 30 days. "
             "This is a current-news snapshot, not a verified five-year project forecast; confirm proposals with official notices."
         )
+    score_intro = "Your selected needs shape" if preferences["priority_ids"] else "This balanced report gives"
+    if amenities["status"] == "live":
+        priority_fit = (
+            f"{score_intro} a score of {score}/100. Nearby maps list {amenities['schools_count']} schools, "
+            f"{amenities['hospitals_count']} healthcare sites and {amenities['transit_count']} transit features."
+        )
+    else:
+        priority_fit = f"{score_intro} a score of {score}/100, but nearby facility counts could not be refreshed."
+
+    if "water_resilience" in preferences["priority_ids"]:
+        check_before_deciding = "Water and drainage are stored estimates, not live supply or monsoon readings."
+    elif amenities["status"] != "live":
+        check_before_deciding = "Nearby facility counts could not refresh; confirm schools, care and transit locally."
+    elif air["status"] != "live":
+        check_before_deciding = "Air-quality data did not refresh; the air score uses a neutral placeholder."
+    else:
+        check_before_deciding = "Map counts do not show quality or travel time; water, safety and power are stored baselines."
     return {
         "model": "rule_based",
         "buyer_verdict": verdict,
         "executive_summary": summary,
+        "priority_fit": priority_fit,
+        "check_before_deciding": check_before_deciding,
         "key_strengths": strengths,
         "red_flags": red_flags[:5],
         "infrastructure_outlook": outlook,
@@ -465,6 +484,9 @@ def _normalize_audit(candidate, fallback, model_name):
     for key in ("buyer_verdict", "executive_summary", "infrastructure_outlook"):
         value = candidate.get(key)
         audit[key] = value.strip()[:1200] if isinstance(value, str) and value.strip() else fallback[key]
+    for key in ("priority_fit", "check_before_deciding"):
+        value = candidate.get(key)
+        audit[key] = " ".join(value.strip().split()[:20]) if isinstance(value, str) and value.strip() else fallback.get(key, "")
     for key in ("key_strengths", "red_flags"):
         value = candidate.get(key)
         if isinstance(value, list):
@@ -499,8 +521,10 @@ async def generate_gemma_analysis(locality, persona, score, pillars, live_metric
     prompt = (
         "You are LocaleIQ's local neighborhood decision analyst. Personalize the analysis for every selected household priority; "
         "when priorities compete, explain the trade-off instead of ignoring one. Python has already calculated the authoritative "
-        "score and weights: do not recalculate or change numeric scores. Return one JSON object with buyer_verdict, executive_summary, "
-        "key_strengths, red_flags, and infrastructure_outlook. Use only supplied facts. Do not invent amenities, safety events, "
+        "score and weights: do not recalculate or change numeric scores. Return one JSON object with priority_fit and "
+        "check_before_deciding, plus buyer_verdict, executive_summary, key_strengths, red_flags, and infrastructure_outlook. "
+        "Make each of the first two fields one plain-language sentence of at most 20 words. Use everyday words, short sentences, and no jargon. "
+        "Use only supplied facts. Do not invent amenities, safety events, "
         "water conditions, commute times, approved projects, or forecasts. Clearly distinguish stored baselines from live/modelled "
         "data, and state when the evidence is missing. Keep strengths and red_flags as short string arrays. Data: "
         + json.dumps(prompt_data, ensure_ascii=False)
@@ -545,6 +569,9 @@ async def build_live_report(locality, persona, config, priorities=None):
         "schools_count": amenities["schools_count"],
         "hospitals_count": amenities["hospitals_count"],
         "transit_count": amenities["transit_count"],
+        "air_quality_status": air["status"],
+        "amenities_status": amenities["status"],
+        "civic_news_status": news["status"],
         "news_articles_analyzed": news["articles_count"],
     }
     audit = build_rule_based_audit(locality, persona, score, air, amenities, news, pillars, preferences)
