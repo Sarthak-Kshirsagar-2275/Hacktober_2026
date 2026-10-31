@@ -85,7 +85,7 @@ PRIORITY_PROFILES = {
         "label": "Safety-focused household",
         "pillar_weights": {"schools_and_healthcare": 0.10, "safety_and_security": 0.38, "power_reliability": 0.12, "future_infrastructure": 0.15, "water_and_drainage": 0.12, "air_and_environment": 0.13},
         "school_share": 0.50,
-        "focus": "Emphasize the stored safety baseline and state that it is not a live crime or incident feed.",
+        "focus": "Emphasize the stored safety estimate and state that it is not based on recent news or official crime records; its origin and date are unknown.",
     },
     "infra_long_term": {
         "label": "Long-term infrastructure interest",
@@ -248,6 +248,8 @@ async def fetch_amenities(client, locality, config):
         f'nwr(around:2500,{lat},{lon})["amenity"~"^(school|university|college|kindergarten|hospital|clinic|doctors|bus_station|bus_stop)$"];'
         f'nwr(around:2500,{lat},{lon})["public_transport"~"^(station|stop_position|platform)$"];'
         f'nwr(around:2500,{lat},{lon})["railway"~"^(station|subway_entrance|tram_stop)$"];'
+        f'nwr(around:2500,{lat},{lon})["amenity"="police"];'
+        f'nwr(around:2500,{lat},{lon})["waterway"~"^(drain|ditch)$"];'
         ");out tags;"
     )
     try:
@@ -262,6 +264,8 @@ async def fetch_amenities(client, locality, config):
         schools = set()
         hospitals = set()
         transit = set()
+        police_stations = set()
+        drainage_features = set()
         for element in elements:
             identity = (element.get("type"), element.get("id"))
             if identity in seen:
@@ -279,6 +283,10 @@ async def fetch_amenities(client, locality, config):
                 transit.add(identity)
             if tags.get("railway") in {"station", "subway_entrance", "tram_stop"}:
                 transit.add(identity)
+            if amenity == "police":
+                police_stations.add(identity)
+            if tags.get("waterway") in {"drain", "ditch"}:
+                drainage_features.add(identity)
         return {
             "status": "live",
             "provider": "OpenStreetMap Overpass",
@@ -286,6 +294,8 @@ async def fetch_amenities(client, locality, config):
             "schools_count": len(schools),
             "hospitals_count": len(hospitals),
             "transit_count": len(transit),
+            "police_stations_count": len(police_stations),
+            "drainage_features_count": len(drainage_features),
         }
     except Exception as exc:
         return {
@@ -295,6 +305,8 @@ async def fetch_amenities(client, locality, config):
             "schools_count": None,
             "hospitals_count": None,
             "transit_count": None,
+            "police_stations_count": None,
+            "drainage_features_count": None,
             "error": "Nearby place information is not available right now.",
         }
 
@@ -370,7 +382,7 @@ def calculate_scores(locality, air, amenities, persona=None, priorities=None, pr
 
 PILLAR_LABELS = {
     "schools_and_healthcare": "schools and healthcare",
-    "safety_and_security": "safety",
+    "safety_and_security": "safety estimate",
     "power_reliability": "power reliability",
     "future_infrastructure": "transit and infrastructure",
     "water_and_drainage": "water and drainage",
@@ -501,7 +513,7 @@ def _strengths_and_flags(locality, air, amenities, pillars):
     else:
         red_flags.append("A current air-quality reading is not available right now.")
 
-    strengths.append(f"The report rates local safety at {pillars['safety_and_security']}/100.")
+    red_flags.insert(0, "The safety estimate is a stored baseline; we do not know where it came from or when it was last checked.")
     strengths.append(f"The report rates water and drainage at {pillars['water_and_drainage']}/100.")
     if float(locality["power_outage_hrs_week"]) <= 2:
         strengths.append(f"Estimated power interruptions are {float(locality['power_outage_hrs_week']):g} hours per week.")
@@ -538,7 +550,7 @@ def build_rule_based_audit(locality, persona, score, air, amenities, news, pilla
         amenity_sentence = "Nearby schools, healthcare and transit are not confirmed right now."
     summary = (
         f"{locality['name']} scored {score}/100 for {persona_label}. {air_sentence} {amenity_sentence} "
-        "Safety, water and power figures are estimates rather than live readings."
+        "The safety number is a stored estimate, not based on recent headlines or official crime records; we do not know where it came from or when it was last checked. Water and power figures are also estimates, not live readings."
     )
     strengths, red_flags = _strengths_and_flags(locality, air, amenities, pillars)
     if news["status"] != "live":
@@ -579,7 +591,7 @@ def build_rule_based_audit(locality, persona, score, air, amenities, news, pilla
 
     pillar_names = {
         "schools_and_healthcare": "Schools and healthcare",
-        "safety_and_security": "Safety",
+        "safety_and_security": "Safety estimate",
         "power_reliability": "Power reliability",
         "future_infrastructure": "Transit and infrastructure",
         "water_and_drainage": "Water and drainage",
@@ -687,6 +699,7 @@ async def generate_gemma_analysis(
         },
         "score": score,
         "pillars": pillars,
+        "safety_data_note": "The safety number is a stored estimate; its origin and date are unknown. It is not calculated from recent news or official crime records.",
         "live_metrics": {key: value for key, value in live_metrics.items() if value is not None},
         "news_titles": [item["title"] for item in news["articles"][:8]],
     }
@@ -724,6 +737,7 @@ async def generate_gemma_analysis(
         + ("The comparison matrix is calculated by Python. Add one counterfactual_insight of at most 40 words explaining the strongest alternative for the selected priorities; do not repeat ranks, prices, scores, or numeric differences because Python displays them. " if comparison else "")
         + "Use everyday professional language. Never mention software, code, services, sources, requests, errors, missing fields, or technical terms. "
         + "If a figure is not confirmed, say that plainly without explaining why. Never write None, null, unknown, or a guessed count. "
+        + "When discussing safety, call its number a stored estimate; do not say it is based on recent news or official crime records. "
         + "Use only supplied facts; do not invent facilities, quality, travel times, safety events, water conditions, or future projects. "
         + "Keep strengths and red_flags as short string arrays. Data: "
         + json.dumps(prompt_data, ensure_ascii=False)
@@ -810,6 +824,54 @@ async def build_live_report(locality, persona, config, priorities=None, comparis
     statuses = {"air_quality": air["status"], "amenities": amenities["status"], "civic_news": news["status"]}
     live_count = sum(status == "live" for status in statuses.values())
     quality_status = "live" if live_count == len(statuses) else "partial" if live_count else "fallback"
+    mapped_context = {
+        "provider": "OpenStreetMap contributors",
+        "status": amenities["status"],
+        "retrieved_at": amenities.get("retrieved_at"),
+        "radius_m": 2500,
+        "police_stations_count": amenities.get("police_stations_count"),
+        "drainage_features_count": amenities.get("drainage_features_count"),
+        "used_in_scores": False,
+    }
+    data_provenance = {
+        "air_quality": {
+            "provider": "Open-Meteo Air Quality",
+            "status": air["status"],
+            "retrieved_at": air.get("retrieved_at"),
+            "source_url": "https://open-meteo.com/en/docs/air-quality-api",
+            "license_url": "https://open-meteo.com/en/licence",
+            "coverage": "Modeled estimate requested at the locality coordinates; not a local monitor reading.",
+            "usage_note": "The free API is for non-commercial use; commercial use requires an appropriate provider plan.",
+        },
+        "nearby_places": {
+            "provider": "OpenStreetMap contributors via Overpass API",
+            "status": amenities["status"],
+            "retrieved_at": amenities.get("retrieved_at"),
+            "radius_m": 2500,
+            "source_url": "https://www.openstreetmap.org/copyright",
+            "license": "Open Database License (ODbL)",
+            "coverage": "Mapped features within 2.5 km of the locality coordinates; counts may be incomplete or out of date.",
+            "context_note": "Mapped police stations and drainage channels are context only, not crime or service-reliability measures.",
+        },
+        "stored_baselines": {
+            "provider": "LocaleIQ local SQLite baseline",
+            "source_url": None,
+            "source_date": None,
+            "fields": [
+                "average price per square foot",
+                "safety estimate",
+                "water and drainage score",
+                "estimated weekly power interruptions",
+            ],
+            "note": "The database does not record the upstream source or observation date for these stored values.",
+        },
+        "civic_news": {
+            "provider": "Google News RSS",
+            "status": news["status"],
+            "retrieved_at": news.get("retrieved_at"),
+            "coverage": "Gurugram-wide search of recent stories; not specific to the selected locality.",
+        },
+    }
 
     return {
         "locality_id": locality["id"],
@@ -830,6 +892,8 @@ async def build_live_report(locality, persona, config, priorities=None, comparis
         "gemma_audit": audit,
         "comparison": comparison,
         "data_quality": {"status": quality_status, "live_sources": live_count, "source_count": len(statuses)},
+        "mapped_context": mapped_context,
+        "data_provenance": data_provenance,
         "data_sources": {
             "air_quality": air,
             "amenities": amenities,

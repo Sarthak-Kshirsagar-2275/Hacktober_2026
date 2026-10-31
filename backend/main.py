@@ -137,7 +137,7 @@ async def generate_report(
         if selected_priorities
         else persona or "balanced"
     )
-    cache_key = f"report-v4:{locality_id}:{cache_variant}"
+    cache_key = f"report-v6:{locality_id}:{cache_variant}"
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute("SELECT payload FROM report_cache WHERE cache_key = ?", (cache_key,)).fetchone()
         if row:

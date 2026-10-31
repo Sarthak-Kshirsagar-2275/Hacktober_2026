@@ -103,7 +103,7 @@ function renderReport(data) {
     const scoreWeights = data.priority_scoring?.pillar_weights;
     const pillarNames = {
         schools_and_healthcare: 'Schools & healthcare',
-        safety_and_security: 'Safety',
+        safety_and_security: 'Safety estimate',
         power_reliability: 'Power',
         future_infrastructure: 'Transit / infrastructure',
         water_and_drainage: 'Water',
@@ -134,6 +134,15 @@ function renderReport(data) {
     document.getElementById('newsCount').textContent = m.recent_news_available
         ? `${displayValue(m.news_articles_analyzed)} recent local stories reviewed`
         : 'Recent local news is not available right now.';
+
+    const provenance = data.data_provenance || {};
+    const mappedContext = data.mapped_context || {};
+    document.getElementById('airSourceTime').textContent = sourceCheckedAt(provenance.air_quality);
+    document.getElementById('mapSourceTime').textContent = sourceCheckedAt(provenance.nearby_places);
+    document.getElementById('newsSourceTime').textContent = sourceCheckedAt(provenance.civic_news);
+    document.getElementById('mappedContextNote').textContent = mappedContext.status === 'live'
+        ? `Within 2.5 km: ${displayValue(mappedContext.police_stations_count)} mapped police stations and ${displayValue(mappedContext.drainage_features_count)} mapped drains or ditches. These counts are context only; they do not measure crime or drainage service reliability.`
+        : 'Mapped police-station and drainage details are not confirmed right now. They are context only and do not determine the safety or water score.';
 
     const p = data.pillar_scores;
     setPillar('Schools', p.schools_and_healthcare);
@@ -223,14 +232,23 @@ function renderComparison(comparison, audit) {
         !area.air_reading_confirmed || !area.nearby_places_confirmed
     );
     document.getElementById('comparisonDataNote').textContent = hasUnconfirmed
-        ? 'Safety, water and power use saved estimates. Air and nearby places are checked per area; unconfirmed checks use neutral ratings. Price is a listed average.'
-        : 'Safety, water and power use saved estimates; air and nearby places use current checks. Price is a listed average.';
+        ? 'The safety estimate, water and power use saved values. Air and nearby places are checked per area; unconfirmed checks use neutral ratings. Price is a listed average.'
+        : 'The safety estimate, water and power use saved values; air and nearby places use current checks. Price is a listed average.';
 }
 
 function displayValue(value, suffix = '') {
     return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
         ? `${value}${suffix}`
         : 'Not confirmed';
+}
+
+function sourceCheckedAt(source) {
+    if (!source || source.status !== 'live' || !source.retrieved_at) {
+        return 'This source was not available for this report.';
+    }
+    const date = new Date(source.retrieved_at);
+    if (Number.isNaN(date.getTime())) return 'Check time is not available.';
+    return `Checked ${date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST.`;
 }
 
 function renderTextList(id, items, prefix) {
@@ -262,7 +280,7 @@ function updateChart(p) {
     radarChart = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['Schools', 'Safety', 'Power', 'Infra', 'Water', 'Air'],
+            labels: ['Schools', 'Safety estimate', 'Power', 'Infra', 'Water', 'Air'],
             datasets: [{
                 label: 'Pillar Score',
                 data: [
