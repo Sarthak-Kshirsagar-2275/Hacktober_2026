@@ -1,0 +1,43 @@
+{
+  "locality_id": "dlf_phase_4",
+  "locality_name": "DLF Phase 4 (Sector 28), Gurugram",
+  "buyer_persona": "family",
+  "avg_price_sqft_inr": 22500,
+  "standardized_quality_score": 81.4,
+  "grade": "A-",
+  "pillar_scores": {
+    "schools_and_healthcare": 92,
+    "safety_and_security": 86,
+    "power_reliability": 91,
+    "future_infrastructure": 84,
+    "water_and_drainage": 78,
+    "air_and_environment": 46
+  },
+  "live_metrics": {
+    "us_aqi": 168,
+    "aqi_category": "Unhealthy",
+    "pm2_5_ugm3": 82.4,
+    "pm10_ugm3": 146.0,
+    "power_outage_hrs_week": 1.5
+  },
+  "gemma_9b_audit": {
+    "model": "gemma2:9b",
+    "executive_summary": "DLF Phase 4 (Sector 28) is a mature, high-convenience residential micro-market ideal for families prioritizing top-tier schooling, metro walkability, and established social infrastructure, though buyers must account for high entry prices (₹22,500/sq.ft) and seasonal NCR air quality challenges.",
+    "key_strengths": [
+      "Immediate proximity to premier schools (The Shri Ram School Aravali, Ridge Valley) and tertiary hospitals (Fortis, Max) within a 2.5 km radius.",
+      "High grid reliability (only ~1.5 hrs/week DHBVN outage) reinforced by 100% society-level diesel generator backup.",
+      "Walkable commercial and transit access via Galleria Market and nearby Yellow Line & Rapid Metro stations."
+    ],
+    "red_flags": [
+      "Elevated particulate exposure (US AQI 168, PM2.5 at 82.4 µg/m³) requires indoor air filtration for children and seniors.",
+      "Localized monsoon waterlogging along internal collector roads near Hamilton Court during intense July-August rainfall.",
+      "Peak-hour traffic congestion around Galleria Market and Chakkarpur entry corridors."
+    ],
+    "infrastructure_outlook": "High stability with incremental civic upgrades: GMDA master drainage de-silting and the upcoming Gurugram Metro loop connecting Millennium City Centre to Cyber City will further reduce dependency on private vehicles over the next 3-5 years.",
+    "buyer_verdict": "Strong Buy for end-user families seeking immediate livability and low execution risk over speculative construction zones."
+  }
+}
+
+
+
+

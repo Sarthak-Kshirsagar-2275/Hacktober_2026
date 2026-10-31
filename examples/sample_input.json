@@ -1,0 +1,29 @@
+{
+  "request": {
+    "locality_id": "dlf_phase_4",
+    "buyer_persona": "family"
+  },
+  "locality_record": {
+    "id": "dlf_phase_4",
+    "name": "DLF Phase 4 (Sector 28), Gurugram",
+    "lat": 28.4672,
+    "lon": 77.0819,
+    "avg_price_sqft": 22500,
+    "school_score": 92,
+    "safety_score": 86,
+    "water_score": 78,
+    "power_outage_hrs_week": 1.5,
+    "infra_score": 84,
+    "raw_civic_notes": "Established gated residential hub adjacent to Galleria Market and IFFCO Chowk/MG Road Yellow Line Metro stations. Top-tier schools (The Shri Ram School Aravali, Ridge Valley) and tertiary hospitals (Fortis, Max) are within 1.5-2.5 km. GMDA canal water supply is stable, though internal colony roads near Hamilton Court experience localized waterlogging during peak July-August monsoon downpours. Most societies have 100% DG backup for minor DHBVN feeder trips."
+  },
+  "live_environmental_telemetry": {
+    "source": "Open-Meteo Air Quality API",
+    "us_aqi": 168,
+    "pm2_5_ugm3": 82.4,
+    "pm10_ugm3": 146.0
+  }
+}
+
+
+
+
