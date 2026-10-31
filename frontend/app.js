@@ -20,6 +20,14 @@ function updatePriorityPickerLabel() {
         : 'Balanced — select any';
 }
 
+function setLoading(isLoading) {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.classList.toggle('is-active', isLoading);
+    overlay.setAttribute('aria-hidden', String(!isLoading));
+    document.body.classList.toggle('overflow-hidden', isLoading);
+    document.querySelector('main').setAttribute('aria-busy', String(isLoading));
+}
+
 async function loadLocalities() {
     const select = document.getElementById('localitySelect');
     const statusText = document.getElementById('statusText');
@@ -45,14 +53,16 @@ async function fetchReport() {
     const priorities = getSelectedPriorities();
     const statusText = document.getElementById('statusText');
     const generateBtn = document.getElementById('generateBtn');
+    const priorityPicker = document.getElementById('priorityPicker');
+    priorityPicker.open = false;
 
     if (!localityId) {
         statusText.textContent = 'Select a Gurugram Locality';
         return;
     }
 
-    statusText.textContent = 'Preparing your personalized neighborhood report...';
     generateBtn.disabled = true;
+    setLoading(true);
 
     try {
         const params = new URLSearchParams({ locality_id: localityId });
@@ -67,6 +77,7 @@ async function fetchReport() {
     } catch (err) {
         statusText.textContent = 'Error Generating Report';
     } finally {
+        setLoading(false);
         generateBtn.disabled = false;
     }
 }
