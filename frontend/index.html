@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocaleIQ | Gurugram Civic Audit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FFFFFF;
+            color: #141414;
+        }
+        h1, h2, h3, .font-heading {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        * {
+            border-radius: 0 !important;
+        }
+        .brown-border {
+            border: 2px solid #5C3A21;
+        }
+        .subtle-border {
+            border: 1px solid #D6C7B8;
+        }
+        .bg-warm {
+            background-color: #FBF9F6;
+        }
+        .bg-brown {
+            background-color: #5C3A21;
+        }
+        .text-brown {
+            color: #5C3A21;
+        }
+        .details-panel {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.25s ease;
+        }
+        .details-panel.open {
+            max-height: 700px;
+            opacity: 1;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body class="p-0 m-0 bg-white">
+    <header class="border-b-2 border-[#5C3A21] px-6 py-5 bg-white">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-[#141414]">LOCALEIQ <span class="text-brown">// GURUGRAM</span></h1>
+            </div>
+            <span id="statusText" class="text-xs font-bold uppercase px-3 py-1 bg-warm brown-border text-brown">Awaiting Selection</span>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-6 space-y-6">
+        <section class="bg-warm brown-border p-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+                <label for="localitySelect" class="block text-xs font-bold uppercase text-brown mb-1">01. Select Gurugram Locality</label>
+                <select id="localitySelect" class="w-full p-3 bg-white brown-border text-base font-bold text-[#141414] focus:outline-none">
+                    <option value="">Loading from Database...</option>
+                </select>
+            </div>
+            <div>
+                <label for="personaSelect" class="block text-xs font-bold uppercase text-brown mb-1">02. Priority</label>
+                <select id="personaSelect" class="w-full p-3 bg-white brown-border text-base font-bold text-[#141414] focus:outline-none">
+                    <option value="family">Family</option>
+                    <option value="commuter">Daily Commuter</option>
+                    <option value="investor">Investor</option>
+                </select>
+            </div>
+            <div>
+                <button id="generateBtn" class="w-full p-3 bg-brown text-white font-heading font-bold uppercase tracking-wider brown-border cursor-pointer">
+                    GENERATE REPORT
+                </button>
+            </div>
+        </section>
+
+        <section id="reportContainer" class="space-y-6">
+            <div class="bg-white brown-border p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <div class="text-xs font-bold uppercase text-brown">Selected Locality</div>
+                        <h2 id="localityName" class="text-2xl font-bold text-[#141414] mt-1">--</h2>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-right">
+                            <div class="text-xs font-bold uppercase text-brown">Avg Price</div>
+                            <div id="avgPrice" class="text-2xl font-heading font-bold text-[#141414]">--</div>
+                        </div>
+                        <div class="text-right border-l-2 border-[#5C3A21] pl-6">
+                            <div class="text-xs font-bold uppercase text-brown">Quality Score</div>
+                            <div class="flex items-baseline gap-2">
+                                <span id="overallScore" class="text-5xl font-heading font-bold text-[#141414]">--</span>
+                                <span id="overallGrade" class="px-2 py-1 bg-brown text-white text-sm font-bold">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
+                    <button onclick="toggleDetails('detailsSummary', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
+                        SHOW MORE DETAILS [+]
+                    </button>
+                </div>
+                <div id="detailsSummary" class="details-panel">
+                    <div class="bg-warm subtle-border p-4 space-y-2">
+                        <div class="text-xs font-bold uppercase text-brown">Buyer Verdict</div>
+                        <p id="buyerVerdict" class="text-base font-bold text-[#141414]">--</p>
+                        <div class="text-xs font-bold uppercase text-brown pt-2">Executive Summary</div>
+                        <p id="execSummary" class="text-sm text-[#141414] leading-relaxed">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white brown-border p-6">
+                <div class="text-xs font-bold uppercase text-brown mb-3">Live Telemetry Numbers</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">US AQI</div>
+                        <div id="liveAqi" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">PM2.5</div>
+                        <div id="livePm25" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">PM10</div>
+                        <div id="livePm10" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">Power Cuts</div>
+                        <div id="powerOutage" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
+                    <button onclick="toggleDetails('detailsTelemetry', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
+                        SHOW MORE DETAILS [+]
+                    </button>
+                </div>
+                <div id="detailsTelemetry" class="details-panel">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center bg-warm subtle-border p-4">
+                        <div class="space-y-2 text-sm text-[#141414]">
+                            <div><span class="font-bold text-brown">AQI Category:</span> <span id="aqiCategory" class="font-bold">--</span></div>
+                            <div><span class="font-bold text-brown">Mapped Amenities (2.5km):</span> <span id="amenityCounts" class="font-bold">--</span></div>
+                            <div><span class="font-bold text-brown">Live Civic News Analyzed:</span> <span id="newsCount" class="font-bold">--</span></div>
+                        </div>
+                        <div class="h-56 flex items-center justify-center bg-white subtle-border p-2">
+                            <canvas id="pillarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white brown-border p-6">
+                <div class="text-xs font-bold uppercase text-brown mb-3">6-Pillar Scorecard</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">01 Schools &amp; Health</div>
+                        <div id="scoreSchools" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barSchools" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">02 Safety</div>
+                        <div id="scoreSafety" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barSafety" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">03 Power Grid</div>
+                        <div id="scorePower" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barPower" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">04 Transit &amp; Infra</div>
+                        <div id="scoreInfra" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barInfra" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">05 Water &amp; Drainage</div>
+                        <div id="scoreWater" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barWater" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                    <div class="bg-warm subtle-border p-4">
+                        <div class="text-xs font-bold uppercase text-brown">06 Air Quality</div>
+                        <div id="scoreAir" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
+                        <div class="w-full h-2 bg-white subtle-border"><div id="barAir" class="h-full bg-brown" style="width: 0%"></div></div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
+                    <button onclick="toggleDetails('detailsAudit', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
+                        SHOW MORE DETAILS [+]
+                    </button>
+                </div>
+                <div id="detailsAudit" class="details-panel">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-warm subtle-border p-4">
+                        <div>
+                            <div class="text-xs font-bold uppercase text-[#1B5E20] mb-2">[+] Verified Strengths</div>
+                            <ul id="strengthsList" class="text-sm text-[#141414] space-y-1.5">
+                                <li>--</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold uppercase text-[#B71C1C] mb-2">[!] Civic Red Flags</div>
+                            <ul id="redFlagsList" class="text-sm text-[#141414] space-y-1.5">
+                                <li>--</li>
+                            </ul>
+                        </div>
+                        <div class="md:col-span-2 pt-2 border-t border-[#D6C7B8]">
+                            <div class="text-xs font-bold uppercase text-brown mb-1">5-Year Infrastructure Outlook</div>
+                            <p id="infraOutlook" class="text-sm text-[#141414]">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function toggleDetails(panelId, btn) {
+            const panel = document.getElementById(panelId);
+            const isOpen = panel.classList.toggle('open');
+            btn.textContent = isOpen ? 'HIDE DETAILS [-]' : 'SHOW MORE DETAILS [+]';
+        }
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
