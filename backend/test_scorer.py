@@ -3,12 +3,17 @@ from unittest.mock import AsyncMock, patch
 
 from scorer import (
     aqi_category,
+    build_rule_based_audit,
     build_live_report,
     calculate_scores,
     current_values,
+    fetch_air_quality,
+    fetch_amenities,
+    fetch_news,
     grade_from_score,
     generate_gemma_analysis,
     resolve_preferences,
+    _clean_user_text,
 )
 
 
@@ -129,7 +134,77 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["data_quality"]["status"], "live")
         self.assertEqual(report["live_metrics"]["news_articles_analyzed"], 1)
         self.assertIn("air_and_environment", report["pillar_scores"])
-        self.assertEqual(report["gemma_audit"]["model"], "rule_based")
+        self.assertFalse(report["gemma_audit"]["used_gemma"])
+        for prefix in ("overall", "telemetry", "pillar"):
+            numbers = report["gemma_audit"][f"{prefix}_numbers"]
+            insight = report["gemma_audit"][f"{prefix}_insight"]
+            self.assertLessEqual(len(numbers.split()) + len(insight.split()), 50)
+
+    def test_unconfirmed_nearby_counts_use_plain_language(self):
+        locality = {
+            "name": "Test Locality, Gurugram",
+            "avg_price_sqft": 20000,
+            "base_safety_score": 80,
+            "base_water_score": 75,
+            "power_outage_hrs_week": 2,
+        }
+        air = {"status": "unavailable", "values": {"us_aqi": None, "pm2_5": None, "pm10": None}}
+        amenities = {
+            "status": "unavailable",
+            "schools_count": None,
+            "hospitals_count": None,
+            "transit_count": None,
+        }
+        news = {"status": "unavailable", "articles": [], "articles_count": 0}
+        preferences = resolve_preferences(["children"])
+        pillars, score = calculate_scores(locality, air, amenities, preferences=preferences)
+        audit = build_rule_based_audit(locality, None, score, air, amenities, news, pillars, preferences)
+        all_text = " ".join(
+            [audit["executive_summary"], audit["telemetry_numbers"], *audit["red_flags"]]
+        )
+        self.assertNotIn("None", all_text)
+        self.assertNotIn("OpenStreetMap", all_text)
+        self.assertNotIn("could not gather", all_text.lower())
+        self.assertIn("not confirmed right now", audit["executive_summary"])
+
+    def test_gemma_language_sanitizer_uses_safe_fallback(self):
+        fallback = "Nearby details are not confirmed right now."
+        unsafe = "The API failed to gather None school counts."
+        self.assertEqual(_clean_user_text(unsafe, fallback, max_words=25), fallback)
+        self.assertEqual(
+            _clean_user_text("There are three nearby schools.", fallback, max_words=25, reject_numbers=True),
+            fallback,
+        )
+        self.assertEqual(_clean_user_text("The service is unavailable.", fallback, max_words=25), fallback)
+
+    async def test_live_source_errors_are_generic(self):
+        class BrokenClient:
+            async def get(self, *args, **kwargs):
+                raise RuntimeError("SECRET provider endpoint traceback")
+
+            async def post(self, *args, **kwargs):
+                raise RuntimeError("SECRET provider endpoint traceback")
+
+        client = BrokenClient()
+        locality = {"lat": 28.45, "lon": 77.05}
+        config = {
+            "air_quality_api_url": "https://example.test/air",
+            "overpass_api_url": "https://example.test/places",
+            "news_rss_url": "https://example.test/news",
+        }
+        results = [
+            await fetch_air_quality(client, locality, config),
+            await fetch_amenities(client, locality, config),
+            await fetch_news(client, config),
+        ]
+        expected_messages = [
+            "A current air reading is not available right now.",
+            "Nearby place information is not available right now.",
+            "Recent local news is not available right now.",
+        ]
+        for result, message in zip(results, expected_messages):
+            self.assertEqual(result["error"], message)
+            self.assertNotIn("SECRET", str(result))
 
     async def test_gemma_prompt_includes_selected_priorities(self):
         import json
@@ -141,6 +216,12 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             def json(self):
                 return {
                     "response": json.dumps({
+                        "overall_numbers": "The area scored 75/100; the average listed price is ₹20,000 per sq.ft.",
+                        "overall_insight": "Compare the listed average with your budget and the needs you selected.",
+                        "telemetry_numbers": "AQI 80 (Moderate); PM2.5 20; PM10 30; estimated power interruptions are 2 hours weekly.",
+                        "telemetry_insight": "Air readings can change, so check current conditions before deciding.",
+                        "pillar_numbers": "Schools and healthcare 75; safety 80; power 70; transit 65; water 75; air 72.",
+                        "pillar_insight": "Your selected needs give schools and healthcare more influence on the total.",
                         "buyer_verdict": "Check both school and healthcare access.",
                         "executive_summary": "The analysis reflects the selected household priorities.",
                         "key_strengths": ["Priority-aware analysis"],
@@ -166,9 +247,16 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         locality = {"name": "Test Locality", "avg_price_sqft": 20000}
         news = {"articles": [{"title": "Local civic notice"}]}
         fallback = {
-            "model": "rule_based",
+            "model": "Report insight",
+            "used_gemma": False,
             "buyer_verdict": "Fallback",
             "executive_summary": "Fallback summary",
+            "overall_numbers": "Fallback numbers.",
+            "overall_insight": "Fallback insight.",
+            "telemetry_numbers": "Fallback reading.",
+            "telemetry_insight": "Fallback reading insight.",
+            "pillar_numbers": "Fallback ratings.",
+            "pillar_insight": "Fallback rating insight.",
             "key_strengths": ["Fallback strength"],
             "red_flags": ["Fallback flag"],
             "infrastructure_outlook": "Fallback outlook",
@@ -191,8 +279,17 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         prompt = client.request["json"]["prompt"]
         self.assertIn("Children at home", prompt)
         self.assertIn("Elders / regular medical needs", prompt)
-        self.assertIn("do not recalculate", prompt.lower())
-        self.assertEqual(result["model"], "ollama:gemma4:12b")
+        self.assertIn("do not repeat or change them", prompt.lower())
+        self.assertIn("25 words", prompt)
+        self.assertTrue(result["used_gemma"])
+        self.assertEqual(result["model"], "Gemma")
+        self.assertEqual(result["overall_numbers"], fallback["overall_numbers"])
+        for prefix in ("overall", "telemetry", "pillar"):
+            self.assertLessEqual(
+                len(result[f"{prefix}_numbers"].split()) + len(result[f"{prefix}_insight"].split()),
+                50,
+            )
+            self.assertFalse(any(character.isdigit() for character in result[f"{prefix}_insight"]))
 
 
 if __name__ == "__main__":

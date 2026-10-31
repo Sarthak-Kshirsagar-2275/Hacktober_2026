@@ -33,7 +33,7 @@ async function loadLocalities() {
     const statusText = document.getElementById('statusText');
     try {
         const res = await fetch(`${API_BASE}/api/localities`);
-        if (!res.ok) throw new Error('Failed to load localities');
+        if (!res.ok) throw new Error('Locality choices are not available right now.');
         const localities = await res.json();
         select.innerHTML = localities
             .map(loc => `<option value="${loc.id}">${loc.name}</option>`)
@@ -43,8 +43,8 @@ async function loadLocalities() {
             fetchReport();
         }
     } catch (err) {
-        select.innerHTML = '<option value="">Database Offline — Start Backend</option>';
-        statusText.textContent = 'Backend Offline';
+        select.innerHTML = '<option value="">Locality choices are not available right now.</option>';
+        statusText.textContent = 'Report temporarily unavailable';
     }
 }
 
@@ -57,7 +57,7 @@ async function fetchReport() {
     priorityPicker.open = false;
 
     if (!localityId) {
-        statusText.textContent = 'Select a Gurugram Locality';
+        statusText.textContent = 'Please choose a locality first.';
         return;
     }
 
@@ -68,14 +68,12 @@ async function fetchReport() {
         const params = new URLSearchParams({ locality_id: localityId });
         priorities.forEach(priority => params.append('priorities', priority));
         const res = await fetch(`${API_BASE}/api/report?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error('The report is not available right now.');
         const data = await res.json();
         renderReport(data);
-        statusText.textContent = data.gemma_audit?.model?.startsWith('ollama:')
-            ? 'Local Gemma Analysis Ready'
-            : 'Rule-Based Report Ready';
+        statusText.textContent = 'Report ready';
     } catch (err) {
-        statusText.textContent = 'Error Generating Report';
+        statusText.textContent = 'We couldn’t prepare the report. Please try again.';
     } finally {
         setLoading(false);
         generateBtn.disabled = false;
@@ -84,12 +82,26 @@ async function fetchReport() {
 
 function renderReport(data) {
     document.getElementById('localityName').textContent = data.locality_name;
-    document.getElementById('avgPrice').textContent = `₹${Number(data.avg_price_sqft_inr).toLocaleString('en-IN')} / sq.ft`;
+    const price = Number(data.avg_price_sqft_inr);
+    document.getElementById('avgPrice').textContent = Number.isFinite(price)
+        ? `₹${price.toLocaleString('en-IN')} per sq ft`
+        : 'Not confirmed';
     document.getElementById('overallScore').textContent = data.standardized_quality_score;
     document.getElementById('overallGrade').textContent = data.grade;
 
-    document.getElementById('buyerVerdict').textContent = data.gemma_audit.buyer_verdict;
-    document.getElementById('execSummary').textContent = data.gemma_audit.executive_summary;
+    const audit = data.gemma_audit || {};
+    const gemmaStatus = audit.used_gemma === true ? 'Local Gemma' : 'Backup insight';
+    ['gemmaOverallStatus', 'gemmaTelemetryStatus', 'gemmaPillarsStatus'].forEach(id => {
+        document.getElementById(id).textContent = gemmaStatus;
+    });
+    document.getElementById('gemmaOverallNumbers').textContent = audit.overall_numbers || 'The score and listed average price are shown above.';
+    document.getElementById('gemmaOverallInsight').textContent = audit.overall_insight || 'Compare the figures with your needs and budget.';
+    document.getElementById('gemmaTelemetryNumbers').textContent = audit.telemetry_numbers || 'Some current readings are not confirmed.';
+    document.getElementById('gemmaTelemetryInsight').textContent = audit.telemetry_insight || 'Check local conditions before making a decision.';
+    document.getElementById('gemmaPillarsNumbers').textContent = audit.pillar_numbers || 'The six ratings are shown above.';
+    document.getElementById('gemmaPillarsInsight').textContent = audit.pillar_insight || 'A high total can still include a weaker area.';
+    document.getElementById('buyerVerdict').textContent = audit.buyer_verdict || 'Compare the ratings with your needs before deciding.';
+    document.getElementById('execSummary').textContent = audit.executive_summary || 'Review the figures above and confirm details locally.';
     document.getElementById('appliedPriorities').textContent = (data.priority_labels || []).join(' + ');
     const scoreWeights = data.priority_scoring?.pillar_weights;
     const pillarNames = {
@@ -112,13 +124,19 @@ function renderReport(data) {
     }
 
     const m = data.live_metrics;
-    document.getElementById('liveAqi').textContent = m.us_aqi;
-    document.getElementById('livePm25').textContent = m.pm2_5_ugm3;
-    document.getElementById('livePm10').textContent = m.pm10_ugm3;
-    document.getElementById('powerOutage').textContent = `${m.power_outage_hrs_week}h/wk`;
-    document.getElementById('aqiCategory').textContent = m.aqi_category;
-    document.getElementById('amenityCounts').textContent = `Schools: ${m.schools_count} | Hospitals: ${m.hospitals_count} | Transit: ${m.transit_count}`;
-    document.getElementById('newsCount').textContent = `${m.news_articles_analyzed} live Gurugram reports`;
+    document.getElementById('liveAqi').textContent = displayValue(m.us_aqi);
+    document.getElementById('livePm25').textContent = displayValue(m.pm2_5_ugm3);
+    document.getElementById('livePm10').textContent = displayValue(m.pm10_ugm3);
+    document.getElementById('powerOutage').textContent = displayValue(m.power_outage_hrs_week, ' hours/week');
+    document.getElementById('aqiCategory').textContent = m.aqi_category && m.aqi_category !== 'Unavailable'
+        ? m.aqi_category
+        : 'Not confirmed';
+    document.getElementById('amenityCounts').textContent = m.nearby_places_confirmed
+        ? `Schools: ${displayValue(m.schools_count)} | Healthcare: ${displayValue(m.hospitals_count)} | Transit: ${displayValue(m.transit_count)}`
+        : 'Nearby schools, healthcare and transit are not confirmed right now.';
+    document.getElementById('newsCount').textContent = m.recent_news_available
+        ? `${displayValue(m.news_articles_analyzed)} recent local stories reviewed`
+        : 'Recent local news is not available right now.';
 
     const p = data.pillar_scores;
     setPillar('Schools', p.schools_and_healthcare);
@@ -128,17 +146,32 @@ function renderReport(data) {
     setPillar('Water', p.water_and_drainage);
     setPillar('Air', p.air_and_environment);
 
-    document.getElementById('strengthsList').innerHTML = data.gemma_audit.key_strengths
-        .map(item => `<li>[+] ${item}</li>`)
-        .join('');
-
-    document.getElementById('redFlagsList').innerHTML = data.gemma_audit.red_flags
-        .map(item => `<li>[!] ${item}</li>`)
-        .join('');
-
-    document.getElementById('infraOutlook').textContent = data.gemma_audit.infrastructure_outlook;
+    renderTextList('strengthsList', audit.key_strengths, '+');
+    renderTextList('redFlagsList', audit.red_flags, '•');
+    document.getElementById('infraOutlook').textContent = audit.infrastructure_outlook || 'Check current local notices before relying on future plans.';
 
     updateChart(p);
+}
+
+function displayValue(value, suffix = '') {
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+        ? `${value}${suffix}`
+        : 'Not confirmed';
+}
+
+function renderTextList(id, items, prefix) {
+    const list = document.getElementById(id);
+    list.replaceChildren();
+    (Array.isArray(items) ? items : []).forEach(item => {
+        const row = document.createElement('li');
+        row.textContent = `${prefix} ${item}`;
+        list.appendChild(row);
+    });
+    if (!list.children.length) {
+        const row = document.createElement('li');
+        row.textContent = 'No additional details to show.';
+        list.appendChild(row);
+    }
 }
 
 function setPillar(suffix, value) {

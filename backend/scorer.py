@@ -1,6 +1,7 @@
 import asyncio
 import json
 import math
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from urllib.parse import urlencode
@@ -234,7 +235,7 @@ async def fetch_air_quality(client, locality, config):
             "provider": "Open-Meteo Air Quality",
             "retrieved_at": None,
             "values": {"us_aqi": None, "pm2_5": None, "pm10": None},
-            "error": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "error": "A current air reading is not available right now.",
         }
 
 
@@ -294,7 +295,7 @@ async def fetch_amenities(client, locality, config):
             "schools_count": None,
             "hospitals_count": None,
             "transit_count": None,
-            "error": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "error": "Nearby place information is not available right now.",
         }
 
 
@@ -331,7 +332,7 @@ async def fetch_news(client, config):
             "retrieved_at": None,
             "articles": [],
             "articles_count": 0,
-            "error": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "error": "Recent local news is not available right now.",
         }
 
 
@@ -373,102 +374,169 @@ def _strengths_and_flags(locality, air, amenities, pillars):
     if amenities["status"] == "live":
         if amenities["schools_count"] or amenities["hospitals_count"]:
             strengths.append(
-                f"OpenStreetMap lists {amenities['schools_count']} schools and {amenities['hospitals_count']} healthcare facilities within 2.5 km."
+                f"Within 2.5 km, nearby places include {amenities['schools_count']} schools and {amenities['hospitals_count']} healthcare locations."
             )
         else:
-            red_flags.append("OpenStreetMap returned no mapped schools or healthcare facilities within 2.5 km; verify local coverage.")
+            red_flags.append("The map shows no nearby schools or healthcare places; check local coverage before deciding.")
         if amenities["transit_count"]:
-            strengths.append(f"OpenStreetMap lists {amenities['transit_count']} nearby transit features within 2.5 km.")
+            strengths.append(f"The map shows {amenities['transit_count']} nearby transit stops or stations.")
         else:
-            red_flags.append("OpenStreetMap returned no mapped transit features within 2.5 km; verify local coverage.")
+            red_flags.append("The map shows no nearby transit stops or stations; check local coverage before deciding.")
     else:
-        red_flags.append("Nearby school, healthcare, and transit counts could not be refreshed from OpenStreetMap.")
+        red_flags.append("Nearby school, healthcare and transit information is not confirmed right now.")
 
     if air["status"] == "live" and air["values"].get("us_aqi") is not None:
         aqi = round(air["values"]["us_aqi"])
         if aqi <= 100:
-            strengths.append(f"Current modelled US AQI is {aqi} ({aqi_category(aqi)}).")
+            strengths.append(f"The current air-quality reading is {aqi} ({aqi_category(aqi)}).")
         else:
-            red_flags.append(f"Current modelled US AQI is {aqi} ({aqi_category(aqi)}); sensitive groups may need extra precautions.")
+            red_flags.append(f"The current air-quality reading is {aqi} ({aqi_category(aqi)}); sensitive groups may need extra care.")
     else:
-        red_flags.append("Current air-quality values are unavailable; the air pillar uses a neutral fallback score.")
+        red_flags.append("A current air-quality reading is not available right now.")
 
-    strengths.append(f"The project's baseline safety score is {pillars['safety_and_security']}/100.")
-    strengths.append(f"The project's baseline water and drainage score is {pillars['water_and_drainage']}/100.")
+    strengths.append(f"The report rates local safety at {pillars['safety_and_security']}/100.")
+    strengths.append(f"The report rates water and drainage at {pillars['water_and_drainage']}/100.")
     if float(locality["power_outage_hrs_week"]) <= 2:
-        strengths.append(f"The project's estimated power interruption baseline is {locality['power_outage_hrs_week']} hours per week.")
+        strengths.append(f"Estimated power interruptions are {float(locality['power_outage_hrs_week']):g} hours per week.")
     else:
-        red_flags.append(f"The project's estimated power interruption baseline is {locality['power_outage_hrs_week']} hours per week.")
+        red_flags.append(f"Estimated power interruptions are {float(locality['power_outage_hrs_week']):g} hours per week.")
     if len(strengths) < 2:
-        strengths.append("The locality has a stored Gurugram residential price and location record.")
+        strengths.append("A listed average home price is available for this area.")
     return strengths[:5], red_flags[:5]
 
 
 def build_rule_based_audit(locality, persona, score, air, amenities, news, pillars, preferences=None):
     preferences = preferences or resolve_preferences(persona=persona)
-    persona_label = {"family": "families", "commuter": "daily commuters", "investor": "investors"}.get(persona, "locality buyers")
+    persona_label = {"family": "families", "commuter": "daily commuters", "investor": "investors"}.get(persona, "home seekers")
     if preferences["priority_ids"]:
-        persona_label = "households prioritizing " + ", ".join(preferences["priority_labels"])
+        persona_label = ", ".join(preferences["priority_labels"])
     if score >= 80:
-        verdict = f"Strong fit for {persona_label}; verify current property pricing and civic conditions before deciding."
+        verdict = f"This area looks like a strong fit for {persona_label}; check prices and local conditions before deciding."
     elif score >= 65:
-        verdict = f"Potential fit for {persona_label}; compare the weaker score pillars and confirm them locally."
+        verdict = f"This area may fit {persona_label}; compare the ratings most important to you and check them locally."
     else:
-        verdict = f"Proceed cautiously as {persona_label}; several quality indicators need verification."
+        verdict = f"Take a closer look before choosing this area for {persona_label}; some ratings need local checks."
 
     aqi = air["values"].get("us_aqi")
     if aqi is None:
-        air_sentence = "Current air-quality data is unavailable."
+        air_sentence = "A current air-quality reading is not available right now."
     else:
-        air_sentence = f"The current modelled US AQI is {round(aqi)} ({aqi_category(aqi)})."
+        air_sentence = f"The current air-quality reading is AQI {round(aqi)} ({aqi_category(aqi)})."
     if amenities["status"] == "live":
         amenity_sentence = (
-            f"OpenStreetMap lists {amenities['schools_count']} schools, {amenities['hospitals_count']} healthcare facilities, "
-            f"and {amenities['transit_count']} transit features within 2.5 km."
+            f"Within 2.5 km, the map shows {amenities['schools_count']} schools, "
+            f"{amenities['hospitals_count']} healthcare places and {amenities['transit_count']} transit stops."
         )
     else:
-        amenity_sentence = "Nearby amenities could not be refreshed from OpenStreetMap."
+        amenity_sentence = "Nearby schools, healthcare and transit are not confirmed right now."
     summary = (
-        f"{locality['name']} has a preference-weighted score of {score}/100 for {persona_label}. "
-        f"{air_sentence} {amenity_sentence} Safety, water, and power figures are stored project baselines, "
-        "not live sensor readings. Air data is modelled; amenity data is from © OpenStreetMap contributors, "
-        "and civic headlines are from Google News RSS."
+        f"{locality['name']} scored {score}/100 for {persona_label}. {air_sentence} {amenity_sentence} "
+        "Safety, water and power figures are estimates rather than live readings."
     )
     strengths, red_flags = _strengths_and_flags(locality, air, amenities, pillars)
     if news["status"] != "live":
-        red_flags.append("The Gurugram civic-news feed could not be refreshed.")
+        red_flags.append("Recent local news is not available right now.")
     elif news["articles_count"] == 0:
-        red_flags.append("No matching Gurugram civic-news articles were returned for the last 30 days.")
-    outlook = (
-        "The free feeds used here do not verify funded or scheduled local infrastructure projects. Check official GMDA, "
-        "Haryana, and DHBVN notices before relying on a future works timeline."
-    )
+        red_flags.append("No recent local stories matched these topics.")
+    outlook = "This report cannot confirm future projects. Check current local authority notices before relying on a timeline."
     if news["status"] == "live" and news["articles"]:
         outlook = (
-            f"The civic feed returned {news['articles_count']} Gurugram articles from the last 30 days. "
-            "This is a current-news snapshot, not a verified five-year project forecast; confirm proposals with official notices."
+            f"The report includes {news['articles_count']} recent local stories. "
+            "News can describe proposals, not confirm that work is approved or funded."
         )
+
+    selected_focus = ", ".join(preferences["priority_labels"]) if preferences["priority_ids"] else "the factors that matter most to you"
+    overall_numbers = (
+        f"{locality['name']} scored {score}/100 ({grade_from_score(score)}); "
+        f"the listed average price is ₹{int(locality['avg_price_sqft']):,} per square foot."
+    )
+    if preferences["priority_ids"]:
+        overall_insight = (
+            f"For {selected_focus}, compare the related ratings first; the listed price is an average, not an affordability rating."
+        )
+    else:
+        overall_insight = "Use this score to compare areas, then check the ratings that matter most to you."
+
+    air_values = air["values"]
+    telemetry_parts = []
+    if aqi is not None:
+        telemetry_parts.append(f"AQI {round(aqi)} ({aqi_category(aqi)})")
+    if air_values.get("pm2_5") is not None:
+        telemetry_parts.append(f"PM2.5 {round(air_values['pm2_5'], 1)} µg/m³")
+    if air_values.get("pm10") is not None:
+        telemetry_parts.append(f"PM10 {round(air_values['pm10'], 1)} µg/m³")
+    telemetry_numbers = "; ".join(telemetry_parts) if telemetry_parts else "No current air readings are confirmed"
+    power_hours = float(locality["power_outage_hrs_week"])
+    telemetry_numbers += f". Estimated power interruptions: {power_hours:g} hours per week."
+    telemetry_insight = "Air readings can change, and power is estimated; check conditions at the home before deciding."
+
+    pillar_names = {
+        "schools_and_healthcare": "Schools and healthcare",
+        "safety_and_security": "Safety",
+        "power_reliability": "Power reliability",
+        "future_infrastructure": "Transit and infrastructure",
+        "water_and_drainage": "Water and drainage",
+        "air_and_environment": "Air quality",
+    }
+    pillar_numbers = "; ".join(f"{pillar_names[key]} {value}/100" for key, value in pillars.items()) + "."
+    highest_weight = max(preferences["pillar_weights"], key=preferences["pillar_weights"].get)
+    if preferences["priority_ids"]:
+        pillar_insight = f"Your choices give {pillar_names[highest_weight].lower()} the largest influence on the total; higher ratings are better."
+    else:
+        pillar_insight = "Each rating adds to the total; a high score can still hide one weaker area."
     return {
-        "model": "rule_based",
+        "model": "Report insight",
+        "used_gemma": False,
         "buyer_verdict": verdict,
         "executive_summary": summary,
+        "overall_numbers": overall_numbers,
+        "overall_insight": overall_insight,
+        "telemetry_numbers": telemetry_numbers,
+        "telemetry_insight": telemetry_insight,
+        "pillar_numbers": pillar_numbers,
+        "pillar_insight": pillar_insight,
         "key_strengths": strengths,
         "red_flags": red_flags[:5],
         "infrastructure_outlook": outlook,
     }
 
 
-def _normalize_audit(candidate, fallback, model_name):
+_TECHNICAL_USER_TEXT = re.compile(
+    r"\b(?:api|backend|frontend|server|database|code|exception|traceback|http|json|sql|sqlite|none|null|undefined|nan|ollama|overpass|openstreetmap|google news rss|provider|endpoint|fallback|rule[- ]based|timeout|model|error|errors|failure|failed|service|network|connection|source|request|status code)\b"
+    r"|\b(?:failed to|could not fetch|could not gather|could not load|could not retrieve|unable to fetch|unable to load|couldn't|can't|cannot)\b",
+    re.IGNORECASE,
+)
+
+
+def _clean_user_text(value, fallback, max_words=50, reject_numbers=False):
+    if not isinstance(value, str) or not value.strip():
+        return fallback
+    text = " ".join(value.strip().split())
+    spelled_number = re.search(r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten)\b", text, re.IGNORECASE)
+    if _TECHNICAL_USER_TEXT.search(text) or (reject_numbers and (re.search(r"\d", text) or spelled_number)):
+        return fallback
+    return " ".join(text.split()[:max_words])
+
+
+def _normalize_audit(candidate, fallback):
     if not isinstance(candidate, dict):
         return fallback
-    audit = {"model": model_name}
+    audit = {"model": "Gemma", "used_gemma": True}
     for key in ("buyer_verdict", "executive_summary", "infrastructure_outlook"):
-        value = candidate.get(key)
-        audit[key] = value.strip()[:1200] if isinstance(value, str) and value.strip() else fallback[key]
+        audit[key] = _clean_user_text(candidate.get(key), fallback[key], max_words=50)
+    for key in ("overall_numbers", "telemetry_numbers", "pillar_numbers"):
+        audit[key] = fallback[key]
+    for key in ("overall_insight", "telemetry_insight", "pillar_insight"):
+        audit[key] = _clean_user_text(candidate.get(key), fallback[key], max_words=25, reject_numbers=True)
     for key in ("key_strengths", "red_flags"):
         value = candidate.get(key)
         if isinstance(value, list):
-            items = [item.strip()[:400] for item in value if isinstance(item, str) and item.strip()]
+            fallback_items = fallback.get(key) or ["Please check this detail locally."]
+            items = [
+                _clean_user_text(item, fallback_items[index % len(fallback_items)], max_words=30)
+                for index, item in enumerate(value)
+                if isinstance(item, str) and item.strip()
+            ]
             audit[key] = items[:5] or fallback[key]
         else:
             audit[key] = fallback[key]
@@ -493,16 +561,19 @@ async def generate_gemma_analysis(locality, persona, score, pillars, live_metric
         },
         "score": score,
         "pillars": pillars,
-        "live_metrics": live_metrics,
+        "live_metrics": {key: value for key, value in live_metrics.items() if value is not None},
         "news_titles": [item["title"] for item in news["articles"][:8]],
     }
     prompt = (
-        "You are LocaleIQ's local neighborhood decision analyst. Personalize the analysis for every selected household priority; "
-        "when priorities compete, explain the trade-off instead of ignoring one. Python has already calculated the authoritative "
-        "score and weights: do not recalculate or change numeric scores. Return one JSON object with buyer_verdict, executive_summary, "
-        "key_strengths, red_flags, and infrastructure_outlook. Use only supplied facts. Do not invent amenities, safety events, "
-        "water conditions, commute times, approved projects, or forecasts. Clearly distinguish stored baselines from live/modelled "
-        "data, and state when the evidence is missing. Keep strengths and red_flags as short string arrays. Data: "
+        "You are LocaleIQ's local-neighborhood guide. Personalize the explanation for every selected household priority and be fair when priorities compete. "
+        "Python has already calculated the official numbers and ratings; they will be shown before your words. Do not repeat or change them. "
+        "Return one JSON object with these three short fields: overall_insight, telemetry_insight, and pillar_insight, plus buyer_verdict, "
+        "executive_summary, key_strengths, red_flags, and infrastructure_outlook. In each card, the exact Numbers line comes first; your Insight "
+        "line follows with one useful takeaway. Keep each insight to at most 25 words and do not include numerals, so each card stays within 50 words. "
+        "Use everyday professional language. Never mention software, code, services, sources, requests, errors, missing fields, or technical terms. "
+        "If a figure is not confirmed, say that plainly without explaining why. Never write None, null, unknown, or a guessed count. "
+        "Use only supplied facts; do not invent facilities, quality, travel times, safety events, water conditions, or future projects. "
+        "Keep strengths and red_flags as short string arrays. Data: "
         + json.dumps(prompt_data, ensure_ascii=False)
     )
     url = config.get("ollama_url", "http://localhost:11434").rstrip("/") + "/api/generate"
@@ -515,7 +586,7 @@ async def generate_gemma_analysis(locality, persona, score, pillars, live_metric
             )
             response.raise_for_status()
             generated = response.json().get("response", "")
-            return _normalize_audit(json.loads(generated), fallback, f"ollama:{model}")
+            return _normalize_audit(json.loads(generated), fallback)
     except Exception:
         return fallback
 
@@ -538,7 +609,7 @@ async def build_live_report(locality, persona, config, priorities=None):
     air_values = air["values"]
     live_metrics = {
         "us_aqi": round(air_values["us_aqi"]) if air_values["us_aqi"] is not None else None,
-        "aqi_category": aqi_category(air_values["us_aqi"]),
+        "aqi_category": aqi_category(air_values["us_aqi"]) if air_values["us_aqi"] is not None else None,
         "pm2_5_ugm3": round(air_values["pm2_5"], 1) if air_values["pm2_5"] is not None else None,
         "pm10_ugm3": round(air_values["pm10"], 1) if air_values["pm10"] is not None else None,
         "power_outage_hrs_week": float(locality["power_outage_hrs_week"]),
@@ -546,6 +617,9 @@ async def build_live_report(locality, persona, config, priorities=None):
         "hospitals_count": amenities["hospitals_count"],
         "transit_count": amenities["transit_count"],
         "news_articles_analyzed": news["articles_count"],
+        "air_reading_confirmed": air["status"] == "live" and air_values["us_aqi"] is not None,
+        "nearby_places_confirmed": amenities["status"] == "live",
+        "recent_news_available": news["status"] == "live",
     }
     audit = build_rule_based_audit(locality, persona, score, air, amenities, news, pillars, preferences)
     audit = await generate_gemma_analysis(

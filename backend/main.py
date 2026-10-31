@@ -3,9 +3,11 @@ import os
 import sqlite3
 from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from scorer import PERSONA_WEIGHTS, PRIORITY_PROFILES, build_live_report
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -69,6 +71,17 @@ def get_locality_by_id(locality_id: str) -> dict | None:
 
 app = FastAPI(title="LocaleIQ API")
 
+
+@app.exception_handler(RequestValidationError)
+async def handle_invalid_request(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=400, content={"detail": "Please check your choices and try again."})
+
+
+@app.exception_handler(Exception)
+async def handle_unexpected_error(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": "We couldn't prepare the report. Please try again."})
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -100,21 +113,21 @@ async def generate_report(
     selected_priorities = list(dict.fromkeys(priorities))
     unknown_priorities = sorted(set(selected_priorities) - set(PRIORITY_PROFILES))
     if unknown_priorities:
-        raise HTTPException(status_code=400, detail=f"Unknown priorities: {', '.join(unknown_priorities)}")
+        raise HTTPException(status_code=400, detail="Please review your selected priorities and try again.")
     if persona is not None and persona not in PERSONA_WEIGHTS:
-        raise HTTPException(status_code=400, detail="Persona must be family, commuter, or investor")
+        raise HTTPException(status_code=400, detail="Please review your choices and try again.")
 
     init_db()
     locality = get_locality_by_id(locality_id)
     if not locality:
-        raise HTTPException(status_code=404, detail="Locality not found in database")
+        raise HTTPException(status_code=404, detail="That area isn't available. Please choose another and try again.")
 
     cache_variant = (
         f"priorities:{','.join(sorted(selected_priorities))}"
         if selected_priorities
         else persona or "balanced"
     )
-    cache_key = f"{locality_id}:{cache_variant}"
+    cache_key = f"report-v3:{locality_id}:{cache_variant}"
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute("SELECT payload FROM report_cache WHERE cache_key = ?", (cache_key,)).fetchone()
         if row:
