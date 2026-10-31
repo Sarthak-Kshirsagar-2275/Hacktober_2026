@@ -38,10 +38,7 @@ async function loadLocalities() {
         select.innerHTML = localities
             .map(loc => `<option value="${loc.id}">${loc.name}</option>`)
             .join('');
-        statusText.textContent = 'Ready';
-        if (localities.length > 0) {
-            fetchReport();
-        }
+        statusText.textContent = 'Ready to generate report';
     } catch (err) {
         select.innerHTML = '<option value="">Locality choices are not available right now.</option>';
         statusText.textContent = 'Report temporarily unavailable';
