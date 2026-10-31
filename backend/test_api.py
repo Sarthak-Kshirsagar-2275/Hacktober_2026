@@ -25,6 +25,10 @@ class ReportPriorityCacheTests(unittest.TestCase):
                         "/api/report?locality_id=dlf_phase_4&priorities=not-a-priority"
                     )
                     self.assertEqual(invalid.status_code, 400)
+                    self.assertEqual(
+                        invalid.json()["detail"],
+                        "Please review your selected priorities and try again.",
+                    )
                     self.assertEqual(report_builder.await_count, 0)
 
                     both = client.get(
@@ -50,6 +54,21 @@ class ReportPriorityCacheTests(unittest.TestCase):
             with sqlite3.connect(test_db) as conn:
                 cache_count = conn.execute("SELECT COUNT(*) FROM report_cache").fetchone()[0]
             self.assertEqual(cache_count, 2)
+
+    def test_unexpected_report_errors_are_generic(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            test_db = Path(temp_dir) / "localeiq_test.db"
+            with patch.object(main, "DB_PATH", test_db), patch(
+                "main.build_live_report",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("SECRET traceback with provider details"),
+            ):
+                with TestClient(main.app, raise_server_exceptions=False) as client:
+                    response = client.get("/api/report?locality_id=dlf_phase_4")
+
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.json()["detail"], "We couldn't prepare the report. Please try again.")
+            self.assertNotIn("SECRET", response.text)
 
 
 if __name__ == "__main__":

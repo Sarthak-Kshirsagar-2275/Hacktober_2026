@@ -85,7 +85,7 @@
         <div class="flex flex-col items-center gap-4 bg-white p-8 brown-border shadow-xl text-center max-w-sm w-full">
             <div class="loading-spinner" aria-hidden="true"></div>
             <p id="loadingMessage" class="font-heading font-bold text-lg text-brown">Preparing your personalized neighborhood report...</p>
-            <p class="text-sm text-gray-600">Please wait while the data and local analysis load.</p>
+            <p class="text-sm text-gray-600">Please wait while we prepare your report.</p>
         </div>
     </div>
     <header class="border-b-2 border-[#5C3A21] px-6 py-5 bg-white">
@@ -102,7 +102,7 @@
             <div>
                 <label for="localitySelect" class="block text-xs font-bold uppercase text-brown mb-1">01. Select Gurugram Locality</label>
                 <select id="localitySelect" class="w-full p-3 bg-white brown-border text-base font-bold text-[#141414] focus:outline-none">
-                    <option value="">Loading from Database...</option>
+                    <option value="">Loading localities...</option>
                 </select>
             </div>
             <div class="relative">
@@ -124,23 +124,23 @@
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="commuter" data-label="Daily commuter / transit-first">
-                            <span><span class="block text-sm font-bold">Daily commuter / transit-first</span><span class="block text-xs text-gray-600">Emphasize mapped transit and air-quality metrics.</span></span>
+                            <span><span class="block text-sm font-bold">Daily commuter / transit-first</span><span class="block text-xs text-gray-600">Emphasize nearby transit and air quality.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="air_sensitive" data-label="Air-quality sensitive household">
-                            <span><span class="block text-sm font-bold">Air-quality sensitive household</span><span class="block text-xs text-gray-600">Give modeled AQI and particulate readings more weight.</span></span>
+                            <span><span class="block text-sm font-bold">Air-quality sensitive household</span><span class="block text-xs text-gray-600">Give air quality and particle readings more weight.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="remote_work" data-label="Work / study from home">
-                            <span><span class="block text-sm font-bold">Work / study from home</span><span class="block text-xs text-gray-600">Emphasize the stored power and water reliability baselines.</span></span>
+                            <span><span class="block text-sm font-bold">Work / study from home</span><span class="block text-xs text-gray-600">Consider power and water reliability ratings.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="water_resilience" data-label="Water / monsoon resilience">
-                            <span><span class="block text-sm font-bold">Water / monsoon resilience</span><span class="block text-xs text-gray-600">Give the stored water-and-drainage baseline more weight.</span></span>
+                            <span><span class="block text-sm font-bold">Water / monsoon resilience</span><span class="block text-xs text-gray-600">Give water and drainage ratings more weight.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="safety_first" data-label="Safety-focused household">
-                            <span><span class="block text-sm font-bold">Safety-focused household</span><span class="block text-xs text-gray-600">Give the stored safety baseline more weight.</span></span>
+                            <span><span class="block text-sm font-bold">Safety-focused household</span><span class="block text-xs text-gray-600">Give the safety rating more weight.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="infra_long_term" data-label="Long-term infrastructure interest">
@@ -170,17 +170,25 @@
                     </div>
                     <div class="flex items-center gap-6">
                         <div class="text-right">
-                            <div class="text-xs font-bold uppercase text-brown">Avg Price</div>
+                            <div class="text-xs font-bold uppercase text-brown">Average Price</div>
                             <div id="avgPrice" class="text-2xl font-heading font-bold text-[#141414]">--</div>
                         </div>
                         <div class="text-right border-l-2 border-[#5C3A21] pl-6">
-                            <div class="text-xs font-bold uppercase text-brown">Quality Score</div>
+                            <div class="text-xs font-bold uppercase text-brown">Area Score</div>
                             <div class="flex items-baseline gap-2">
                                 <span id="overallScore" class="text-5xl font-heading font-bold text-[#141414]">--</span>
                                 <span id="overallGrade" class="px-2 py-1 bg-brown text-white text-sm font-bold">--</span>
                             </div>
                         </div>
                     </div>
+                </div>
+                <div class="mt-4 bg-warm subtle-border p-4" aria-live="polite">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="text-xs font-bold uppercase text-brown">Gemma’s read</div>
+                        <span id="gemmaOverallStatus" class="text-xs font-bold text-brown">Waiting for report</span>
+                    </div>
+                    <p class="text-sm text-[#141414]"><span class="font-bold text-brown">Numbers:</span> <span id="gemmaOverallNumbers">--</span></p>
+                    <p class="text-sm text-[#141414] mt-1"><span class="font-bold text-brown">Insight:</span> <span id="gemmaOverallInsight">--</span></p>
                 </div>
                 <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
                     <button onclick="toggleDetails('detailsSummary', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
@@ -202,24 +210,32 @@
             </div>
 
             <div class="bg-white brown-border p-6">
-                <div class="text-xs font-bold uppercase text-brown mb-3">Live Telemetry Numbers</div>
+                <div class="text-xs font-bold uppercase text-brown mb-3">Current Local Readings</div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">US AQI</div>
+                        <div class="text-xs font-bold uppercase text-brown">Air Quality (AQI)</div>
                         <div id="liveAqi" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">PM2.5</div>
+                        <div class="text-xs font-bold uppercase text-brown">PM2.5 (µg/m³)</div>
                         <div id="livePm25" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">PM10</div>
+                        <div class="text-xs font-bold uppercase text-brown">PM10 (µg/m³)</div>
                         <div id="livePm10" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">Power Cuts</div>
-                        <div id="powerOutage" class="text-4xl font-heading font-bold text-[#141414] mt-1">--</div>
+                        <div class="text-xs font-bold uppercase text-brown">Estimated Power Interruptions</div>
+                        <div id="powerOutage" class="text-2xl font-heading font-bold text-[#141414] mt-1">--</div>
                     </div>
+                </div>
+                <div class="mt-4 bg-warm subtle-border p-4" aria-live="polite">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="text-xs font-bold uppercase text-brown">Gemma’s read</div>
+                        <span id="gemmaTelemetryStatus" class="text-xs font-bold text-brown">Waiting for report</span>
+                    </div>
+                    <p class="text-sm text-[#141414]"><span class="font-bold text-brown">Numbers:</span> <span id="gemmaTelemetryNumbers">--</span></p>
+                    <p class="text-sm text-[#141414] mt-1"><span class="font-bold text-brown">Insight:</span> <span id="gemmaTelemetryInsight">--</span></p>
                 </div>
                 <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
                     <button onclick="toggleDetails('detailsTelemetry', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
@@ -229,9 +245,9 @@
                 <div id="detailsTelemetry" class="details-panel">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center bg-warm subtle-border p-4">
                         <div class="space-y-2 text-sm text-[#141414]">
-                            <div><span class="font-bold text-brown">AQI Category:</span> <span id="aqiCategory" class="font-bold">--</span></div>
-                            <div><span class="font-bold text-brown">Mapped Amenities (2.5km):</span> <span id="amenityCounts" class="font-bold">--</span></div>
-                            <div><span class="font-bold text-brown">Live Civic News Analyzed:</span> <span id="newsCount" class="font-bold">--</span></div>
+                            <div><span class="font-bold text-brown">Air quality level:</span> <span id="aqiCategory" class="font-bold">--</span></div>
+                            <div><span class="font-bold text-brown">Nearby places (within 2.5 km):</span> <span id="amenityCounts" class="font-bold">--</span></div>
+                            <div><span class="font-bold text-brown">Recent local stories:</span> <span id="newsCount" class="font-bold">--</span></div>
                         </div>
                         <div class="h-56 flex items-center justify-center bg-white subtle-border p-2">
                             <canvas id="pillarChart"></canvas>
@@ -241,7 +257,7 @@
             </div>
 
             <div class="bg-white brown-border p-6">
-                <div class="text-xs font-bold uppercase text-brown mb-3">6-Pillar Scorecard</div>
+                <div class="text-xs font-bold uppercase text-brown mb-3">Six Local Ratings</div>
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div class="bg-warm subtle-border p-4">
                         <div class="text-xs font-bold uppercase text-brown">01 Schools &amp; Health</div>
@@ -254,17 +270,17 @@
                         <div class="w-full h-2 bg-white subtle-border"><div id="barSafety" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">03 Power Grid</div>
+                        <div class="text-xs font-bold uppercase text-brown">03 Power</div>
                         <div id="scorePower" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
                         <div class="w-full h-2 bg-white subtle-border"><div id="barPower" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">04 Transit &amp; Infra</div>
+                        <div class="text-xs font-bold uppercase text-brown">04 Transit</div>
                         <div id="scoreInfra" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
                         <div class="w-full h-2 bg-white subtle-border"><div id="barInfra" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">05 Water &amp; Drainage</div>
+                        <div class="text-xs font-bold uppercase text-brown">05 Water</div>
                         <div id="scoreWater" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
                         <div class="w-full h-2 bg-white subtle-border"><div id="barWater" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
@@ -274,6 +290,14 @@
                         <div class="w-full h-2 bg-white subtle-border"><div id="barAir" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
                 </div>
+                <div class="mt-4 bg-warm subtle-border p-4" aria-live="polite">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="text-xs font-bold uppercase text-brown">Gemma’s read</div>
+                        <span id="gemmaPillarsStatus" class="text-xs font-bold text-brown">Waiting for report</span>
+                    </div>
+                    <p class="text-sm text-[#141414]"><span class="font-bold text-brown">Numbers:</span> <span id="gemmaPillarsNumbers">--</span></p>
+                    <p class="text-sm text-[#141414] mt-1"><span class="font-bold text-brown">Insight:</span> <span id="gemmaPillarsInsight">--</span></p>
+                </div>
                 <div class="mt-4 pt-3 border-t border-[#D6C7B8] flex justify-end">
                     <button onclick="toggleDetails('detailsAudit', this)" class="text-xs font-bold uppercase text-brown px-3 py-1.5 bg-warm subtle-border cursor-pointer">
                         SHOW MORE DETAILS [+]
@@ -282,19 +306,19 @@
                 <div id="detailsAudit" class="details-panel">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-warm subtle-border p-4">
                         <div>
-                            <div class="text-xs font-bold uppercase text-[#1B5E20] mb-2">[+] Verified Strengths</div>
+                            <div class="text-xs font-bold uppercase text-[#1B5E20] mb-2">Positive signs</div>
                             <ul id="strengthsList" class="text-sm text-[#141414] space-y-1.5">
                                 <li>--</li>
                             </ul>
                         </div>
                         <div>
-                            <div class="text-xs font-bold uppercase text-[#B71C1C] mb-2">[!] Civic Red Flags</div>
+                            <div class="text-xs font-bold uppercase text-[#B71C1C] mb-2">Things to check</div>
                             <ul id="redFlagsList" class="text-sm text-[#141414] space-y-1.5">
                                 <li>--</li>
                             </ul>
                         </div>
                         <div class="md:col-span-2 pt-2 border-t border-[#D6C7B8]">
-                            <div class="text-xs font-bold uppercase text-brown mb-1">5-Year Infrastructure Outlook</div>
+                            <div class="text-xs font-bold uppercase text-brown mb-1">Future plans to check</div>
                             <p id="infraOutlook" class="text-sm text-[#141414]">--</p>
                         </div>
                     </div>
