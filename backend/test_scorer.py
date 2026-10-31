@@ -143,6 +143,8 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             "schools_count": 3,
             "hospitals_count": 2,
             "transit_count": 4,
+            "police_stations_count": 1,
+            "drainage_features_count": 2,
         }
         news = {
             "status": "live",
@@ -162,8 +164,15 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(report["priority_scoring"]["healthcare_share"], 0.56)
         self.assertEqual(report["data_quality"]["status"], "live")
         self.assertEqual(report["live_metrics"]["news_articles_analyzed"], 1)
+        self.assertEqual(report["mapped_context"]["police_stations_count"], 1)
+        self.assertEqual(report["mapped_context"]["drainage_features_count"], 2)
+        self.assertFalse(report["mapped_context"]["used_in_scores"])
+        self.assertIsNone(report["data_provenance"]["stored_baselines"]["source_date"])
         self.assertIn("air_and_environment", report["pillar_scores"])
         self.assertFalse(report["gemma_audit"]["used_gemma"])
+        self.assertIn("safety estimate", report["gemma_audit"]["pillar_numbers"].lower())
+        self.assertIn("not based on recent headlines", report["gemma_audit"]["executive_summary"].lower())
+        self.assertIn("where it came from", report["gemma_audit"]["executive_summary"].lower())
         for prefix in ("overall", "telemetry", "pillar"):
             numbers = report["gemma_audit"][f"{prefix}_numbers"]
             insight = report["gemma_audit"][f"{prefix}_insight"]
@@ -258,6 +267,41 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["error"], message)
             self.assertNotIn("SECRET", str(result))
 
+    async def test_amenity_query_adds_openstreetmap_context_tags(self):
+        class MockResponse:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"elements": [
+                    {"type": "node", "id": 1, "tags": {"amenity": "school"}},
+                    {"type": "node", "id": 2, "tags": {"amenity": "police"}},
+                    {"type": "way", "id": 3, "tags": {"waterway": "drain"}},
+                    {"type": "way", "id": 4, "tags": {"waterway": "ditch"}},
+                    {"type": "node", "id": 5, "tags": {"amenity": "bus_stop"}},
+                ]}
+
+        class MockClient:
+            query = ""
+
+            async def post(self, url, content, headers):
+                self.query = content
+                return MockResponse()
+
+        client = MockClient()
+        result = await fetch_amenities(
+            client,
+            {"lat": 28.45, "lon": 77.05},
+            {"overpass_api_url": "https://example.test/overpass"},
+        )
+
+        self.assertEqual(result["schools_count"], 1)
+        self.assertEqual(result["transit_count"], 1)
+        self.assertEqual(result["police_stations_count"], 1)
+        self.assertEqual(result["drainage_features_count"], 2)
+        self.assertIn('["amenity"="police"]', client.query)
+        self.assertIn('["waterway"~"^(drain|ditch)$"]', client.query)
+
     async def test_gemma_prompt_includes_selected_priorities(self):
         import json
 
@@ -349,6 +393,9 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Children at home", prompt)
         self.assertIn("Elders / regular medical needs", prompt)
         self.assertIn("do not repeat or change them", prompt.lower())
+        self.assertIn("safety_data_note", prompt)
+        self.assertIn("origin and date are unknown", prompt)
+        self.assertIn("do not say it is based on recent news", prompt.lower())
         self.assertIn("25 words", prompt)
         self.assertIn("comparison_matrix", prompt)
         self.assertIn("Palam Vihar (Sector 23)", prompt)

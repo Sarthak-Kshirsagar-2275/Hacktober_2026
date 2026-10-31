@@ -140,7 +140,7 @@
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="safety_first" data-label="Safety-focused household">
-                            <span><span class="block text-sm font-bold">Safety-focused household</span><span class="block text-xs text-gray-600">Give the safety rating more weight.</span></span>
+                            <span><span class="block text-sm font-bold">Safety-focused household</span><span class="block text-xs text-gray-600">Give the safety estimate more weight.</span></span>
                         </label>
                         <label class="flex gap-2 items-start py-2 border-t border-[#D6C7B8] cursor-pointer">
                             <input class="priority-option mt-1 accent-[#5C3A21]" type="checkbox" value="infra_long_term" data-label="Long-term infrastructure interest">
@@ -255,6 +255,17 @@
                             <canvas id="pillarChart"></canvas>
                         </div>
                     </div>
+                    <div class="mt-4 border-t border-[#D6C7B8] pt-3">
+                        <div class="text-xs font-bold uppercase text-brown mb-2">Data sources and limits</div>
+                        <ul class="space-y-2 text-xs leading-relaxed text-gray-700">
+                            <li><span class="font-bold">Air:</span> modeled estimates from <a class="underline text-brown" href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noopener noreferrer">Open-Meteo</a>, not a local monitor reading. Free access is non-commercial; data are <a class="underline text-brown" href="https://open-meteo.com/en/licence" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> (<a class="underline text-brown" href="https://open-meteo.com/en/terms" target="_blank" rel="noopener noreferrer">terms</a>). <span id="airSourceTime">--</span></li>
+                            <li><span class="font-bold">Nearby map features:</span> <a class="underline text-brown" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors · ODbL</a>. <span id="mapSourceTime">--</span></li>
+                            <li id="mappedContextNote">Mapped police stations and drains/ditches are context only; they do not determine the safety or water score.</li>
+                            <li><span class="font-bold">Safety estimate:</span> this is a stored baseline. We do not know where it came from or when it was last checked; it is not based on recent news or crime records.</li>
+                            <li><span class="font-bold">Other stored values:</span> price, water/drainage and power also use local baselines with no recorded original source or date.</li>
+                            <li><span class="font-bold">News:</span> Gurugram-wide Google News search for recent stories, not a feed for this specific locality. <span id="newsSourceTime">--</span></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -267,7 +278,7 @@
                         <div class="w-full h-2 bg-white subtle-border"><div id="barSchools" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
                     <div class="bg-warm subtle-border p-4">
-                        <div class="text-xs font-bold uppercase text-brown">02 Safety</div>
+                        <div class="text-xs font-bold uppercase text-brown">02 Safety estimate</div>
                         <div id="scoreSafety" class="text-3xl font-heading font-bold text-[#141414] my-1">--</div>
                         <div class="w-full h-2 bg-white subtle-border"><div id="barSafety" class="h-full bg-brown" style="width: 0%"></div></div>
                     </div>
