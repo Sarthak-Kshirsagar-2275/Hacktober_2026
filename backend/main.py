@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from scorer import build_live_report
+from scorer import PERSONA_WEIGHTS, PRIORITY_PROFILES, build_live_report
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
@@ -94,14 +94,27 @@ def list_localities() -> list[dict]:
 @app.get("/api/report")
 async def generate_report(
     locality_id: str = Query(..., description="Locality ID from database"),
-    persona: str = Query("family", description="Buyer persona: family, commuter, investor"),
+    priorities: list[str] = Query(default=[], description="Repeatable household priority IDs"),
+    persona: str | None = Query(default=None, description="Legacy profile: family, commuter, investor"),
 ) -> dict:
+    selected_priorities = list(dict.fromkeys(priorities))
+    unknown_priorities = sorted(set(selected_priorities) - set(PRIORITY_PROFILES))
+    if unknown_priorities:
+        raise HTTPException(status_code=400, detail=f"Unknown priorities: {', '.join(unknown_priorities)}")
+    if persona is not None and persona not in PERSONA_WEIGHTS:
+        raise HTTPException(status_code=400, detail="Persona must be family, commuter, or investor")
+
     init_db()
     locality = get_locality_by_id(locality_id)
     if not locality:
         raise HTTPException(status_code=404, detail="Locality not found in database")
 
-    cache_key = f"{locality_id}:{persona}"
+    cache_variant = (
+        f"priorities:{','.join(sorted(selected_priorities))}"
+        if selected_priorities
+        else persona or "balanced"
+    )
+    cache_key = f"{locality_id}:{cache_variant}"
     with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute("SELECT payload FROM report_cache WHERE cache_key = ?", (cache_key,)).fetchone()
         if row:
@@ -121,7 +134,9 @@ async def generate_report(
         "news_rss_url": os.getenv("NEWS_RSS_URL", "https://news.google.com/rss/search"),
     }
 
-    report = await build_live_report(locality=locality, persona=persona, config=config)
+    report = await build_live_report(
+        locality=locality, persona=persona, config=config, priorities=selected_priorities
+    )
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
@@ -136,4 +151,3 @@ async def generate_report(
 FRONTEND_DIR = ROOT_DIR / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
-

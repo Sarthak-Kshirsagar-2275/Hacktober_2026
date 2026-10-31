@@ -1,7 +1,15 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from scorer import aqi_category, build_live_report, calculate_scores, current_values, grade_from_score
+from scorer import (
+    aqi_category,
+    build_live_report,
+    calculate_scores,
+    current_values,
+    grade_from_score,
+    generate_gemma_analysis,
+    resolve_preferences,
+)
 
 
 class ScorerTests(unittest.TestCase):
@@ -56,6 +64,25 @@ class ScorerTests(unittest.TestCase):
         self.assertGreaterEqual(score, 0)
         self.assertLessEqual(score, 100)
 
+    def test_children_and_elders_priorities_combine_and_shift_healthcare_mix(self):
+        children = resolve_preferences(["children"])
+        elders = resolve_preferences(["elders"])
+        combined = resolve_preferences(["children", "elders"])
+
+        self.assertEqual(combined["priority_ids"], ["children", "elders"])
+        self.assertAlmostEqual(combined["school_share"], 0.44)
+        self.assertAlmostEqual(combined["healthcare_share"], 0.56)
+        self.assertAlmostEqual(sum(combined["pillar_weights"].values()), 1.0)
+
+        locality = {"base_safety_score": 80, "base_water_score": 70, "power_outage_hrs_week": 2}
+        air = {"values": {"us_aqi": None}}
+        amenities = {"status": "live", "schools_count": 7, "hospitals_count": 1, "transit_count": 2}
+        children_pillars, _ = calculate_scores(locality, air, amenities, priorities=["children"])
+        elders_pillars, _ = calculate_scores(locality, air, amenities, priorities=["elders"])
+        combined_pillars, _ = calculate_scores(locality, air, amenities, priorities=["children", "elders"])
+        self.assertGreater(children_pillars["schools_and_healthcare"], combined_pillars["schools_and_healthcare"])
+        self.assertGreater(combined_pillars["schools_and_healthcare"], elders_pillars["schools_and_healthcare"])
+
 
 class ReportTests(unittest.IsolatedAsyncioTestCase):
     async def test_report_contract_with_mocked_free_sources(self):
@@ -94,13 +121,78 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         with patch("scorer.fetch_air_quality", new_callable=AsyncMock, return_value=air), patch(
             "scorer.fetch_amenities", new_callable=AsyncMock, return_value=amenities
         ), patch("scorer.fetch_news", new_callable=AsyncMock, return_value=news):
-            report = await build_live_report(locality, "family", config)
+            report = await build_live_report(locality, "family", config, priorities=["children", "elders"])
         self.assertEqual(report["locality_id"], "test_locality")
         self.assertIn("gemma_audit", report)
+        self.assertEqual(report["selected_priorities"], ["children", "elders"])
+        self.assertAlmostEqual(report["priority_scoring"]["healthcare_share"], 0.56)
         self.assertEqual(report["data_quality"]["status"], "live")
         self.assertEqual(report["live_metrics"]["news_articles_analyzed"], 1)
         self.assertIn("air_and_environment", report["pillar_scores"])
         self.assertEqual(report["gemma_audit"]["model"], "rule_based")
+
+    async def test_gemma_prompt_includes_selected_priorities(self):
+        import json
+
+        class MockResponse:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {
+                    "response": json.dumps({
+                        "buyer_verdict": "Check both school and healthcare access.",
+                        "executive_summary": "The analysis reflects the selected household priorities.",
+                        "key_strengths": ["Priority-aware analysis"],
+                        "red_flags": ["Confirm local facility details"],
+                        "infrastructure_outlook": "The available data does not verify future projects.",
+                    })
+                }
+
+        class MockClient:
+            def __init__(self):
+                self.request = None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def post(self, url, json):
+                self.request = {"url": url, "json": json}
+                return MockResponse()
+
+        locality = {"name": "Test Locality", "avg_price_sqft": 20000}
+        news = {"articles": [{"title": "Local civic notice"}]}
+        fallback = {
+            "model": "rule_based",
+            "buyer_verdict": "Fallback",
+            "executive_summary": "Fallback summary",
+            "key_strengths": ["Fallback strength"],
+            "red_flags": ["Fallback flag"],
+            "infrastructure_outlook": "Fallback outlook",
+        }
+        client = MockClient()
+        preferences = resolve_preferences(["children", "elders"])
+        with patch("scorer.httpx.AsyncClient", return_value=client):
+            result = await generate_gemma_analysis(
+                locality,
+                None,
+                75,
+                {"schools_and_healthcare": 75},
+                {"schools_count": 4, "hospitals_count": 2},
+                news,
+                fallback,
+                {"ollama_model": "gemma4:12b", "ollama_url": "http://localhost:11434"},
+                preferences,
+            )
+
+        prompt = client.request["json"]["prompt"]
+        self.assertIn("Children at home", prompt)
+        self.assertIn("Elders / regular medical needs", prompt)
+        self.assertIn("do not recalculate", prompt.lower())
+        self.assertEqual(result["model"], "ollama:gemma4:12b")
 
 
 if __name__ == "__main__":

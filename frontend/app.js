@@ -4,7 +4,21 @@ const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' 
 document.addEventListener('DOMContentLoaded', () => {
     loadLocalities();
     document.getElementById('generateBtn').addEventListener('click', fetchReport);
+    document.querySelectorAll('.priority-option').forEach(option => {
+        option.addEventListener('change', updatePriorityPickerLabel);
+    });
 });
+
+function getSelectedPriorities() {
+    return [...document.querySelectorAll('.priority-option:checked')].map(option => option.value);
+}
+
+function updatePriorityPickerLabel() {
+    const count = getSelectedPriorities().length;
+    document.getElementById('priorityPickerLabel').textContent = count
+        ? `${count} priorit${count === 1 ? 'y' : 'ies'} selected`
+        : 'Balanced — select any';
+}
 
 async function loadLocalities() {
     const select = document.getElementById('localitySelect');
@@ -28,7 +42,7 @@ async function loadLocalities() {
 
 async function fetchReport() {
     const localityId = document.getElementById('localitySelect').value;
-    const persona = document.getElementById('personaSelect').value;
+    const priorities = getSelectedPriorities();
     const statusText = document.getElementById('statusText');
     const generateBtn = document.getElementById('generateBtn');
 
@@ -37,16 +51,19 @@ async function fetchReport() {
         return;
     }
 
-    statusText.textContent = 'Fetching Live Data & Running Gemma 4 12B...';
+    statusText.textContent = 'Preparing your personalized neighborhood report...';
     generateBtn.disabled = true;
 
     try {
-        const url = `${API_BASE}/api/report?locality_id=${encodeURIComponent(localityId)}&persona=${encodeURIComponent(persona)}`;
-        const res = await fetch(url);
+        const params = new URLSearchParams({ locality_id: localityId });
+        priorities.forEach(priority => params.append('priorities', priority));
+        const res = await fetch(`${API_BASE}/api/report?${params.toString()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         renderReport(data);
-        statusText.textContent = 'Audit Verified';
+        statusText.textContent = data.gemma_audit?.model?.startsWith('ollama:')
+            ? 'Local Gemma Analysis Ready'
+            : 'Rule-Based Report Ready';
     } catch (err) {
         statusText.textContent = 'Error Generating Report';
     } finally {
@@ -62,6 +79,26 @@ function renderReport(data) {
 
     document.getElementById('buyerVerdict').textContent = data.gemma_audit.buyer_verdict;
     document.getElementById('execSummary').textContent = data.gemma_audit.executive_summary;
+    document.getElementById('appliedPriorities').textContent = (data.priority_labels || []).join(' + ');
+    const scoreWeights = data.priority_scoring?.pillar_weights;
+    const pillarNames = {
+        schools_and_healthcare: 'Schools & healthcare',
+        safety_and_security: 'Safety',
+        power_reliability: 'Power',
+        future_infrastructure: 'Transit / infrastructure',
+        water_and_drainage: 'Water',
+        air_and_environment: 'Air quality'
+    };
+    if (scoreWeights) {
+        const weightsText = Object.entries(scoreWeights)
+            .map(([key, value]) => `${pillarNames[key] || key}: ${Math.round(value * 100)}%`)
+            .join(' · ');
+        const mix = data.priority_scoring;
+        const serviceMix = `Within schools & healthcare: ${Math.round(mix.schools_share * 100)}% schools / ${Math.round(mix.healthcare_share * 100)}% healthcare.`;
+        document.getElementById('priorityWeights').textContent = `${weightsText}. ${serviceMix}`;
+    } else {
+        document.getElementById('priorityWeights').textContent = '--';
+    }
 
     const m = data.live_metrics;
     document.getElementById('liveAqi').textContent = m.us_aqi;
