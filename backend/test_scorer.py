@@ -130,10 +130,6 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report["live_metrics"]["news_articles_analyzed"], 1)
         self.assertIn("air_and_environment", report["pillar_scores"])
         self.assertEqual(report["gemma_audit"]["model"], "rule_based")
-        self.assertTrue(report["gemma_audit"]["priority_fit"])
-        self.assertTrue(report["gemma_audit"]["check_before_deciding"])
-        self.assertLessEqual(len(report["gemma_audit"]["priority_fit"].split()), 20)
-        self.assertLessEqual(len(report["gemma_audit"]["check_before_deciding"].split()), 20)
 
     async def test_gemma_prompt_includes_selected_priorities(self):
         import json
@@ -147,8 +143,6 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
                     "response": json.dumps({
                         "buyer_verdict": "Check both school and healthcare access.",
                         "executive_summary": "The analysis reflects the selected household priorities.",
-                        "priority_fit": "Nearby maps show schools and healthcare sites for your household.",
-                        "check_before_deciding": "Map counts do not show quality or travel time.",
                         "key_strengths": ["Priority-aware analysis"],
                         "red_flags": ["Confirm local facility details"],
                         "infrastructure_outlook": "The available data does not verify future projects.",
@@ -175,8 +169,6 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
             "model": "rule_based",
             "buyer_verdict": "Fallback",
             "executive_summary": "Fallback summary",
-            "priority_fit": "Fallback priority note.",
-            "check_before_deciding": "Fallback verification note.",
             "key_strengths": ["Fallback strength"],
             "red_flags": ["Fallback flag"],
             "infrastructure_outlook": "Fallback outlook",
@@ -200,9 +192,6 @@ class ReportTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Children at home", prompt)
         self.assertIn("Elders / regular medical needs", prompt)
         self.assertIn("do not recalculate", prompt.lower())
-        self.assertIn("at most 20 words", prompt)
-        self.assertEqual(result["priority_fit"], "Nearby maps show schools and healthcare sites for your household.")
-        self.assertEqual(result["check_before_deciding"], "Map counts do not show quality or travel time.")
         self.assertEqual(result["model"], "ollama:gemma4:12b")
 
 
