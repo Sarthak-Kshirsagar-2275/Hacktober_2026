@@ -13,7 +13,12 @@ from scorer import PERSONA_WEIGHTS, PRIORITY_PROFILES, build_live_report
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
-DB_PATH = Path(__file__).resolve().parent / "localeiq.db"
+DB_PATH = Path(
+    os.getenv(
+        "LOCALEIQ_DB_PATH",
+        str(Path(__file__).resolve().parent / "localeiq.db"),
+    )
+)
 
 SEED_LOCALITIES = [
     ("dlf_phase_4", "DLF Phase 4 (Sector 28), Gurugram", 28.4672, 77.0819, 22500, 86, 78, 1.5),
@@ -147,7 +152,12 @@ async def generate_report(
         "waqi_api_key": os.getenv("WAQI_API_KEY", ""),
         "openweather_api_key": os.getenv("OPENWEATHER_API_KEY", ""),
         "ollama_url": os.getenv("OLLAMA_URL", "http://localhost:11434"),
-        "ollama_model": os.getenv("OLLAMA_MODEL", "gemma4:12b"),
+        "ollama_timeout_seconds": os.getenv("OLLAMA_TIMEOUT_SECONDS", "18"),
+        "ollama_model": (
+            os.getenv("OLLAMA_MODEL", "gemma4:12b")
+            if os.getenv("OLLAMA_ENABLED", "true").lower() == "true"
+            else ""
+        ),
         "air_quality_api_url": os.getenv(
             "AIR_QUALITY_API_URL", "https://air-quality-api.open-meteo.com/v1/air-quality"
         ),
