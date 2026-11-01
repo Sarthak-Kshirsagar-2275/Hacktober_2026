@@ -1,0 +1,5 @@
+# Root deployment manifest. Keep aligned with backend/requirements.txt.
+fastapi
+uvicorn
+httpx
+python-dotenv
